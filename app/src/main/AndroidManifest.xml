@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <permission
+        android:name="com.mamoro.investments.permission.SYNC"
+        android:protectionLevel="signature"
+        android:label="Investment sync" />
+    <application
+        android:name=".InvestmentsApp"
+        android:allowBackup="false"
+        android:icon="@drawable/ic_app"
+        android:label="Инвестиции"
+        android:roundIcon="@drawable/ic_app"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Investments"
+        android:usesCleartextTraffic="false">
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <provider
+            android:name=".sync.InvestmentsSyncProvider"
+            android:authorities="com.mamoro.investments.sync"
+            android:exported="true"
+            android:readPermission="com.mamoro.investments.permission.SYNC"
+            android:writePermission="com.mamoro.investments.permission.SYNC" />
+    </application>
+</manifest>
