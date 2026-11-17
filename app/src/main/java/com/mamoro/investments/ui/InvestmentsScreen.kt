@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -444,7 +445,7 @@ private data class Operation(val id: String, val source: String, val title: Stri
         } }
         item { GlassCard(Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.LockOutline, null, tint = Green)
+                Icon(Icons.Rounded.Lock, null, tint = Green)
                 Spacer(Modifier.width(9.dp))
                 Text("Конфиденциальность", fontWeight = FontWeight.SemiBold)
             }
