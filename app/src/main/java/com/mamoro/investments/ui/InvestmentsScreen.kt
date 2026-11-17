@@ -26,6 +26,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -80,7 +81,8 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
                 HorizontalPager(state = pager, modifier = Modifier.weight(1f), beyondViewportPageCount = 1) { page ->
                     when (page) {
                         0 -> PortfolioPage(state, onCategory = { scope.launch { pager.animateScrollToPage(1) } },
-                            onQuick = { quickActions = true }, onSecurity = { selectedDetail = it })
+                            onQuick = { quickActions = true }, onAddSecurity = { form = FormKind.NEW_SECURITY },
+                            onSecurity = { selectedDetail = it })
                         1 -> AssetsPage(state, onAdd = { form = FormKind.NEW_SECURITY }, onSecurity = { selectedDetail = it })
                         2 -> OperationsPage(state, onDelete = { kind, id -> deleteItem = kind to id })
                         3 -> AnalyticsPage(state)
@@ -145,26 +147,47 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
 
 @Composable private fun TopBar(onAdd: () -> Unit) {
     Row(Modifier.fillMaxWidth().height(62.dp).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(38.dp).clip(RoundedCornerShape(13.dp)).background(Orange.copy(alpha = .18f)), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.size(38.dp)
+                .shadow(8.dp, RoundedCornerShape(13.dp), spotColor = Orange.copy(alpha = .45f))
+                .clip(RoundedCornerShape(13.dp))
+                .background(Brush.linearGradient(listOf(Color(0xFF63412B), Color(0xFF28232A))))
+                .border(1.dp, Orange.copy(alpha = .48f), RoundedCornerShape(13.dp)),
+            contentAlignment = Alignment.Center
+        ) {
             Icon(Icons.Rounded.BarChart, contentDescription = null, tint = Orange)
         }
         Spacer(Modifier.width(11.dp))
-        Text("Инвестиции", fontWeight = FontWeight.Bold, fontSize = 21.sp, modifier = Modifier.weight(1f))
+        Text("Инвестиции", color = Color(0xFFF9F8FA), fontWeight = FontWeight.Bold, fontSize = 21.sp, modifier = Modifier.weight(1f))
         IconButton(onClick = onAdd) { Icon(Icons.Rounded.Add, contentDescription = "Быстрое действие", tint = Orange) }
     }
 }
 
 @Composable private fun NavigationGlass(selected: Int, onSelect: (Int) -> Unit) {
+    val shape = RoundedCornerShape(22.dp)
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
-        .clip(RoundedCornerShape(22.dp))
-        .background(Color(0xD92A2C32))
-        .border(1.dp, Color(0x55FFFFFF), RoundedCornerShape(22.dp))
-        .padding(vertical = 11.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+        .shadow(12.dp, shape)
+        .clip(shape)
+        .background(Brush.verticalGradient(listOf(Color(0xF043424D), Color(0xEE24262F))))
+        .border(1.dp, Brush.linearGradient(listOf(Color(0xAAFFFFFF), Color(0x44FFFFFF), Orange.copy(alpha = .26f))), shape)
+        .padding(vertical = 9.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
         labels.forEachIndexed { i, title ->
-            Column(Modifier.weight(1f).clickable { onSelect(i) }, horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(tabIcons[i], contentDescription = title, tint = if (i == selected) Orange else SoftText, modifier = Modifier.size(22.dp))
-                Spacer(Modifier.height(4.dp))
-                Text(title, color = if (i == selected) Orange else SoftText, fontSize = 10.sp, maxLines = 1)
+            Column(
+                Modifier.weight(1f).clickable { onSelect(i) }.padding(vertical = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    Modifier.size(width = 36.dp, height = 28.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (i == selected) Orange.copy(alpha = .15f) else Color.Transparent),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(tabIcons[i], contentDescription = title,
+                        tint = if (i == selected) Orange else SoftText,
+                        modifier = Modifier.size(22.dp))
+                }
+                Spacer(Modifier.height(3.dp))
+                Text(title, color = if (i == selected) OrangeLight else SoftText, fontSize = 10.sp, maxLines = 1)
             }
         }
     }
@@ -174,6 +197,7 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
     state: InvestmentsRepository.DashboardState,
     onCategory: () -> Unit,
     onQuick: () -> Unit,
+    onAddSecurity: () -> Unit,
     onSecurity: (String) -> Unit
 ) {
     val summary = state.summary
@@ -186,14 +210,20 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
         item { CategoryRow("Дивиденды", Icons.Rounded.Payments, Green, summary.dividendsMinor, onCategory) }
         item { CategoryRow("Купоны", Icons.Rounded.ConfirmationNumber, OrangeLight, summary.couponsMinor, onCategory) }
         item {
-            Button(onClick = onQuick, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(17.dp)) {
+            Button(
+                onClick = onQuick,
+                modifier = Modifier.fillMaxWidth().height(52.dp)
+                    .shadow(8.dp, RoundedCornerShape(17.dp), spotColor = Orange.copy(alpha = .42f)),
+                shape = RoundedCornerShape(17.dp)
+            ) {
                 Icon(Icons.Rounded.Add, contentDescription = null)
                 Spacer(Modifier.width(8.dp))
                 Text("Быстрое действие", fontWeight = FontWeight.Bold)
             }
         }
         if (state.securities.isEmpty()) {
-            item { Text("Портфель пуст. Начните с добавления бумаги, затем внесите покупку.", color = SoftText, fontSize = 13.sp) }
+            item { EmptyState("Портфель пока пуст", "Добавьте первую бумагу, затем запишите покупку.",
+                actionLabel = "Добавить первую бумагу", onAction = onAddSecurity) }
         } else {
             item { Text("Мои бумаги", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
             items(summary.positions.filter { it.quantityMicros > 0 }.take(4), key = { it.security.id }) { position ->
@@ -276,7 +306,8 @@ private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyM
             }
         }
         if (filtered.isEmpty()) item {
-            EmptyState("Пока нет бумаг", "Нажмите + и добавьте первую акцию, облигацию или фонд.")
+            EmptyState("Пока нет бумаг", "Добавьте первую акцию, облигацию или фонд.",
+                actionLabel = "Добавить бумагу", onAction = onAdd)
         }
         items(filtered, key = { it.security.id }) { item -> PositionRow(item) { onSecurity(item.security.id) } }
     }
@@ -452,7 +483,7 @@ private data class Operation(val id: String, val source: String, val title: Stri
             Spacer(Modifier.height(8.dp))
             Text("Данные хранятся в локальной базе. Разрешение для межпрограммного обмена ограничено цифровой подписью. Интернет не требуется.", color = SoftText, fontSize = 12.sp, lineHeight = 18.sp)
         } }
-        item { Text("Инвестиции 1.0.0 · Android 8.0+", color = SoftText, fontSize = 12.sp) }
+        item { Text("Инвестиции 1.0.1 · Android 8.0+", color = SoftText, fontSize = 12.sp) }
     }
 }
 
@@ -467,11 +498,31 @@ private data class Operation(val id: String, val source: String, val title: Stri
     }
 }
 
-@Composable private fun EmptyState(title: String, subtitle: String) {
-    GlassCard(Modifier.fillMaxWidth()) {
-        Text(title, fontWeight = FontWeight.SemiBold)
+@Composable private fun EmptyState(
+    title: String, subtitle: String,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null
+) {
+    GlassCard(Modifier.fillMaxWidth(), elevated = true) {
+        Box(
+            Modifier.size(42.dp).clip(RoundedCornerShape(14.dp))
+                .background(Orange.copy(alpha = .17f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Rounded.Inventory2, contentDescription = null, tint = OrangeLight)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(title, color = Color(0xFFF9F8FA), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
         Spacer(Modifier.height(5.dp))
-        Text(subtitle, color = SoftText, fontSize = 12.sp)
+        Text(subtitle, color = SoftText, fontSize = 12.sp, lineHeight = 17.sp)
+        if (actionLabel != null && onAction != null) {
+            Spacer(Modifier.height(12.dp))
+            Button(onClick = onAction, shape = RoundedCornerShape(13.dp)) {
+                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(actionLabel, fontWeight = FontWeight.SemiBold)
+            }
+        }
     }
 }
 
