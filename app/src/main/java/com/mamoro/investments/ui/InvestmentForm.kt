@@ -16,6 +16,10 @@ import androidx.compose.ui.unit.dp
 import com.mamoro.investments.data.InvestmentsRepository
 import com.mamoro.investments.domain.MoneyMath
 import com.mamoro.investments.ui.theme.SoftText
+import com.mamoro.investments.ui.theme.Orange
+import com.mamoro.investments.ui.theme.OrangeLight
+import com.mamoro.investments.ui.theme.GlassSizes
+import androidx.compose.ui.graphics.Color
 
 internal enum class FormKind { NEW_SECURITY, BUY, SELL, DIVIDEND, COUPON, PRICE }
 
@@ -46,18 +50,20 @@ internal fun InvestmentForm(
     }
     val selected = available.firstOrNull { it.id == securityId }
 
-    Column(Modifier.fillMaxWidth().heightIn(max = 650.dp).verticalScroll(rememberScrollState())
+    Column(Modifier.widthIn(max = GlassSizes.maxContentWidth).fillMaxWidth().heightIn(max = 650.dp).verticalScroll(rememberScrollState())
         .padding(horizontal = 20.dp).padding(bottom = 35.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         when (kind) {
             FormKind.NEW_SECURITY -> {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Название") },
-                    placeholder = { Text("ОФЗ 26242") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    placeholder = { Text("ОФЗ 26242") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = premiumFieldColors())
                 OutlinedTextField(value = ticker, onValueChange = { ticker = it }, label = { Text("Тикер / обозначение") },
-                    placeholder = { Text("SU26242") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    placeholder = { Text("SU26242") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = premiumFieldColors())
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     listOf("STOCK" to "Акция", "BOND" to "Облигация", "FUND" to "Фонд").forEach { (value, label) ->
-                        FilterChip(selected = securityKind == value, onClick = { securityKind = value }, label = { Text(label) })
+                        FilterChip(selected = securityKind == value, onClick = { securityKind = value }, label = { Text(label) },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Orange.copy(alpha = .30f), selectedLabelColor = OrangeLight))
                     }
                 }
                 AmountField(amount, { amount = it }, "Текущая цена за бумагу, ₽")
@@ -77,13 +83,13 @@ internal fun InvestmentForm(
                             Text("Доступно: ${MoneyMath.formatQuantity(held)} шт.", color = SoftText)
                         }
                         OutlinedTextField(value = quantity, onValueChange = { quantity = it }, label = { Text("Количество, шт.") },
-                            placeholder = { Text("10") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                            placeholder = { Text("10") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = premiumFieldColors())
                         AmountField(amount, { amount = it }, "Цена за бумагу, ₽")
                         AmountField(fee, { fee = it }, "Комиссия, ₽")
                     } else {
                         AmountField(amount, { amount = it }, "Сумма выплаты, ₽")
                         OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Примечание (необязательно)") },
-                            modifier = Modifier.fillMaxWidth(), singleLine = true)
+                            modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp), colors = premiumFieldColors())
                     }
                     if (state.accounts.isNotEmpty()) {
                         SelectionField("Брокерский счёт из Кошелька", state.accounts.map { it.accountId to it.name }, accountId, { accountId = it })
@@ -131,6 +137,7 @@ internal fun InvestmentForm(
 @Composable private fun AmountField(value: String, onChange: (String) -> Unit, label: String) {
     OutlinedTextField(value = value, onValueChange = onChange, label = { Text(label) },
         placeholder = { Text("0,00") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp), colors = premiumFieldColors(),
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
 }
 
@@ -143,7 +150,8 @@ internal fun InvestmentForm(
             value = options.firstOrNull { it.first == selected }?.second.orEmpty(),
             onValueChange = {}, readOnly = true, label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor()
+            modifier = Modifier.fillMaxWidth().menuAnchor(),
+            shape = RoundedCornerShape(14.dp), colors = premiumFieldColors()
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { (value, text) ->
@@ -152,3 +160,9 @@ internal fun InvestmentForm(
         }
     }
 }
+
+@Composable private fun premiumFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color(0xFFF9F7F8), unfocusedTextColor = Color(0xFFF9F7F8),
+    focusedBorderColor = OrangeLight, unfocusedBorderColor = Color.White.copy(alpha = .30f),
+    focusedContainerColor = Color(0x882C2B34), unfocusedContainerColor = Color(0x772B2A33)
+)

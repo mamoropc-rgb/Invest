@@ -4,6 +4,8 @@ package com.mamoro.investments.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -69,35 +71,64 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
         snackbar.showSnackbar(value)
         vm.clearMessage()
     }
-    Box(Modifier.fillMaxSize().background(OrangeBackground)) {
-        Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, Ink.copy(alpha = .67f)))))
-        Column(Modifier.fillMaxSize().safeDrawingPadding()) {
-            TopBar(onAdd = { quickActions = true })
+// Both 6.55-inch phones and 12.1-inch tablets use the same centered,
+    // constrained design grid. Compose uses dp rather than raw device pixels.
+    BoxWithConstraints(Modifier.fillMaxSize().background(OrangeBackground)) {
+        val isTablet = maxWidth >= 600.dp
+        val maxPane = if (isTablet) GlassSizes.maxContentWidth else maxWidth
+        val horizontalInset = if (isTablet) GlassSizes.tabletSidePadding else GlassSizes.phoneSidePadding
+        val paneModifier = Modifier.widthIn(max = maxPane).fillMaxWidth()
+        Box(
+            modifier = Modifier.fillMaxSize().background(
+                Brush.radialGradient(
+                    listOf(Orange.copy(alpha = .085f), Color.Transparent),
+                    center = androidx.compose.ui.geometry.Offset(240f, 900f),
+                    radius = 760f
+                )
+            )
+        )
+        Column(
+            Modifier.fillMaxSize().safeDrawingPadding(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(paneModifier) { TopBar(onAdd = { quickActions = true }, horizontalInset = horizontalInset) }
             if (state == null) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Orange)
                 }
             } else {
-                HorizontalPager(state = pager, modifier = Modifier.weight(1f), beyondViewportPageCount = 1) { page ->
+                HorizontalPager(
+                    state = pager,
+                    modifier = Modifier.weight(1f).then(paneModifier),
+                    beyondViewportPageCount = 1
+                ) { page ->
                     when (page) {
-                        0 -> PortfolioPage(state, onCategory = { scope.launch { pager.animateScrollToPage(1) } },
-                            onQuick = { quickActions = true }, onAddSecurity = { form = FormKind.NEW_SECURITY },
-                            onSecurity = { selectedDetail = it })
-                        1 -> AssetsPage(state, onAdd = { form = FormKind.NEW_SECURITY }, onSecurity = { selectedDetail = it })
-                        2 -> OperationsPage(state, onDelete = { kind, id -> deleteItem = kind to id })
-                        3 -> AnalyticsPage(state)
-                        else -> SettingsPage(state)
+                        0 -> PortfolioPage(state,
+                            onCategory = { scope.launch { pager.animateScrollToPage(1) } },
+                            onQuick = { quickActions = true },
+                            onAdd = { form = FormKind.NEW_SECURITY },
+                            onSecurity = { selectedDetail = it }, horizontalInset = horizontalInset)
+                        1 -> AssetsPage(state, onAdd = { form = FormKind.NEW_SECURITY }, onSecurity = { selectedDetail = it }, horizontalInset = horizontalInset)
+                        2 -> OperationsPage(state, onDelete = { kind, id -> deleteItem = kind to id }, horizontalInset = horizontalInset)
+                        3 -> AnalyticsPage(state, horizontalInset = horizontalInset)
+                        else -> SettingsPage(state, horizontalInset = horizontalInset)
                     }
                 }
             }
-            NavigationGlass(pager.currentPage, onSelect = { page -> scope.launch { pager.animateScrollToPage(page) } })
+            Box(paneModifier) {
+                NavigationGlass(pager.currentPage, onSelect = { page ->
+                    scope.launch { pager.animateScrollToPage(page) }
+                })
+            }
         }
-        SnackbarHost(hostState = snackbar, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 85.dp))
+        SnackbarHost(hostState = snackbar, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 86.dp))
     }
 
+
     if (quickActions) {
-        ModalBottomSheet(onDismissRequest = { quickActions = false }, containerColor = Color(0xEF202127), dragHandle = { BottomSheetDefaults.DragHandle(color = SoftText) }) {
-            Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        ModalBottomSheet(onDismissRequest = { quickActions = false }, containerColor = Color(0xF0202028), dragHandle = { BottomSheetDefaults.DragHandle(color = SoftText) }) {
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+            Column(Modifier.widthIn(max = GlassSizes.maxContentWidth).fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 32.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 Text("Быстрые действия", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 ActionEntry("Купить бумагу", Icons.Rounded.AddCircleOutline) { form = FormKind.BUY; quickActions = false }
                 ActionEntry("Продать", Icons.Rounded.RemoveCircleOutline) { form = FormKind.SELL; quickActions = false }
@@ -106,25 +137,30 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
                 ActionEntry("Добавить бумагу", Icons.Rounded.LibraryAdd) { form = FormKind.NEW_SECURITY; quickActions = false }
                 Text("Пополнение и вывод денег выполняются в «Кошельке».", color = SoftText, fontSize = 12.sp)
             }
+            }
         }
     }
 
     if (form != null && state != null) {
-        ModalBottomSheet(onDismissRequest = { form = null; chosenSecurity = null }, containerColor = Color(0xF5212228)) {
-            InvestmentForm(form!!, state, chosenSecurity, onClose = { form = null; chosenSecurity = null }, vm = vm)
+        ModalBottomSheet(onDismissRequest = { form = null; chosenSecurity = null }, containerColor = Color(0xF521222C)) {
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                InvestmentForm(form!!, state, chosenSecurity, onClose = { form = null; chosenSecurity = null }, vm = vm)
+            }
         }
     }
 
     if (selectedDetail != null && state != null) {
         val item = state.securities.firstOrNull { it.id == selectedDetail }
         if (item != null) {
-            ModalBottomSheet(onDismissRequest = { selectedDetail = null }, containerColor = Color(0xFF1C1F25)) {
+            ModalBottomSheet(onDismissRequest = { selectedDetail = null }, containerColor = Color(0xFF1E2028)) {
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 AssetDetail(item, state, onTrade = { type ->
                     chosenSecurity = item.id
                     form = type
                     selectedDetail = null
                 }, onPrice = { chosenSecurity = item.id; form = FormKind.PRICE; selectedDetail = null },
                     onArchive = { vm.archiveSecurity(item.id); selectedDetail = null })
+                }
             }
         }
     }
@@ -145,51 +181,86 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
     }
 }
 
-@Composable private fun TopBar(onAdd: () -> Unit) {
-    Row(Modifier.fillMaxWidth().height(62.dp).padding(horizontal = 20.dp), verticalAlignment = Alignment.CenterVertically) {
+@Composable private fun TopBar(onAdd: () -> Unit, horizontalInset: androidx.compose.ui.unit.Dp) {
+    Row(
+        Modifier.fillMaxWidth().height(66.dp).padding(horizontal = horizontalInset),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        val shape = RoundedCornerShape(14.dp)
         Box(
-            Modifier.size(38.dp)
-                .shadow(8.dp, RoundedCornerShape(13.dp), spotColor = Orange.copy(alpha = .45f))
-                .clip(RoundedCornerShape(13.dp))
-                .background(Brush.linearGradient(listOf(Color(0xFF63412B), Color(0xFF28232A))))
-                .border(1.dp, Orange.copy(alpha = .48f), RoundedCornerShape(13.dp)),
+            Modifier.size(42.dp).shadow(7.dp, shape)
+                .clip(shape)
+                .background(Brush.linearGradient(listOf(Color(0xFF513526), Color(0xFF211D22))))
+                .border(1.dp, Brush.linearGradient(listOf(OrangeLight.copy(alpha = .82f), Color.White.copy(alpha = .12f))), shape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Rounded.BarChart, contentDescription = null, tint = Orange)
+            Icon(Icons.Rounded.BarChart, contentDescription = null, tint = OrangeLight, modifier = Modifier.size(23.dp))
         }
-        Spacer(Modifier.width(11.dp))
-        Text("Инвестиции", color = Color(0xFFF9F8FA), fontWeight = FontWeight.Bold, fontSize = 21.sp, modifier = Modifier.weight(1f))
-        IconButton(onClick = onAdd) { Icon(Icons.Rounded.Add, contentDescription = "Быстрое действие", tint = Orange) }
+        Spacer(Modifier.width(12.dp))
+        Text("Инвестиции", color = StrongText, fontWeight = FontWeight.Bold,
+            fontSize = 21.sp, modifier = Modifier.weight(1f))
+        IconButton(onClick = onAdd, modifier = Modifier.size(48.dp)) {
+            Icon(Icons.Rounded.Add, contentDescription = "Быстрые действия", tint = OrangeLight, modifier = Modifier.size(27.dp))
+        }
     }
 }
 
 @Composable private fun NavigationGlass(selected: Int, onSelect: (Int) -> Unit) {
-    val shape = RoundedCornerShape(22.dp)
-    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp)
-        .shadow(12.dp, shape)
-        .clip(shape)
-        .background(Brush.verticalGradient(listOf(Color(0xF043424D), Color(0xEE24262F))))
-        .border(1.dp, Brush.linearGradient(listOf(Color(0xAAFFFFFF), Color(0x44FFFFFF), Orange.copy(alpha = .26f))), shape)
-        .padding(vertical = 9.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+    val shape = RoundedCornerShape(23.dp)
+    Row(
+        Modifier.fillMaxWidth()
+            .padding(start = 12.dp, end = 12.dp, top = 5.dp, bottom = 6.dp)
+            .shadow(12.dp, shape, ambientColor = Color.Black, spotColor = Orange.copy(alpha = .12f))
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(Color(0xEF4B4852), Color(0xF02A2B34), Color(0xFB202229))))
+            .border(1.dp, Brush.linearGradient(listOf(Color(0xB7FFFFFF), Color(0x25FFFFFF), Orange.copy(alpha = .34f))), shape)
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
         labels.forEachIndexed { i, title ->
+            val tint by animateColorAsState(if (i == selected) OrangeLight else SoftText, label = "nav-color-$i")
             Column(
-                Modifier.weight(1f).clickable { onSelect(i) }.padding(vertical = 2.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
+                    .clickable { onSelect(i) }
+                    .padding(vertical = 2.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 Box(
-                    Modifier.size(width = 36.dp, height = 28.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (i == selected) Orange.copy(alpha = .15f) else Color.Transparent),
+                    Modifier.size(33.dp).clip(RoundedCornerShape(12.dp))
+                        .background(if (i == selected) Orange.copy(alpha = .20f) else Color.Transparent),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(tabIcons[i], contentDescription = title,
-                        tint = if (i == selected) Orange else SoftText,
-                        modifier = Modifier.size(22.dp))
+                    Icon(tabIcons[i], contentDescription = title, tint = tint, modifier = Modifier.size(21.dp))
                 }
-                Spacer(Modifier.height(3.dp))
-                Text(title, color = if (i == selected) OrangeLight else SoftText, fontSize = 10.sp, maxLines = 1)
+                Text(title, color = tint, fontSize = 10.sp, maxLines = 1)
             }
         }
+    }
+}
+
+/** Orange pill with a polished glass edge, used consistently by both filters. */
+@Composable private fun PremiumChip(selected: Boolean, title: String, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(12.dp)
+    val background = if (selected)
+        Brush.verticalGradient(listOf(Color(0xFFFFB568), Color(0xFFFF902A)))
+    else Brush.verticalGradient(listOf(Color(0xA43B3B44), Color(0xD221232B)))
+    Box(
+        Modifier.heightIn(min = 42.dp).clip(shape).background(background)
+            .border(1.dp, if (selected) OrangeLight else Color.White.copy(alpha = .26f), shape)
+            .clickable(onClick = onClick).padding(horizontal = 15.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(title, color = if (selected) Color(0xFF291507) else StrongText,
+            fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+    }
+}
+
+@Composable private fun PageHeading(title: String, action: (@Composable () -> Unit)? = null) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, style = MaterialTheme.typography.titleLarge, color = StrongText, modifier = Modifier.weight(1f))
+        if (action != null) action()
     }
 }
 
@@ -197,33 +268,55 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
     state: InvestmentsRepository.DashboardState,
     onCategory: () -> Unit,
     onQuick: () -> Unit,
-    onAddSecurity: () -> Unit,
-    onSecurity: (String) -> Unit
+    onAdd: () -> Unit,
+    onSecurity: (String) -> Unit,
+    horizontalInset: androidx.compose.ui.unit.Dp
 ) {
     val summary = state.summary
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = horizontalInset, end = horizontalInset, top = 8.dp, bottom = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(GlassSizes.sectionGap)
+    ) {
         item { PortfolioHero(summary) }
-        item { Text("Активы", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
-        item { CategoryRow("Акции", Icons.Rounded.TrendingUp, Orange, categoryValue(summary, "STOCK"), onCategory) }
-        item { CategoryRow("Облигации", Icons.Rounded.Layers, Color(0xFFC4A1FF), categoryValue(summary, "BOND"), onCategory) }
-        item { CategoryRow("Фонды", Icons.Rounded.PieChart, Color(0xFF76C3FF), categoryValue(summary, "FUND"), onCategory) }
-        item { CategoryRow("Дивиденды", Icons.Rounded.Payments, Green, summary.dividendsMinor, onCategory) }
-        item { CategoryRow("Купоны", Icons.Rounded.ConfirmationNumber, OrangeLight, summary.couponsMinor, onCategory) }
+        item { Spacer(Modifier.height(2.dp)) }
+        item {
+            CategoryRow("Акции", Icons.Rounded.TrendingUp, Orange,
+                categoryValue(summary, "STOCK"), categoryPerformance(summary, "STOCK"), onCategory)
+        }
+        item {
+            CategoryRow("Облигации", Icons.Rounded.Layers, Color(0xFFC4A1FF),
+                categoryValue(summary, "BOND"), categoryPerformance(summary, "BOND"), onCategory)
+        }
+        item {
+            CategoryRow("Фонды", Icons.Rounded.PieChart, Color(0xFF76C3FF),
+                categoryValue(summary, "FUND"), categoryPerformance(summary, "FUND"), onCategory)
+        }
+        item {
+            CategoryRow("Дивиденды", Icons.Rounded.Payments, Green, summary.dividendsMinor,
+                if (summary.dividendsMinor != 0L) "Получено" else "Нет выплат", onCategory)
+        }
+        item {
+            CategoryRow("Купоны", Icons.Rounded.ConfirmationNumber, OrangeLight, summary.couponsMinor,
+                if (summary.couponsMinor != 0L) "Получено" else "Нет выплат", onCategory)
+        }
         item {
             Button(
-                onClick = onQuick,
-                modifier = Modifier.fillMaxWidth().height(52.dp)
-                    .shadow(8.dp, RoundedCornerShape(17.dp), spotColor = Orange.copy(alpha = .42f)),
-                shape = RoundedCornerShape(17.dp)
+                onClick = onQuick, modifier = Modifier.fillMaxWidth().height(50.dp)
+                    .shadow(10.dp, RoundedCornerShape(17.dp), spotColor = Orange.copy(alpha = .36f)),
+                shape = RoundedCornerShape(17.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Orange, contentColor = Color(0xFF251203))
             ) {
-                Icon(Icons.Rounded.Add, contentDescription = null)
+                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Быстрое действие", fontWeight = FontWeight.Bold)
+                Text("Быстрое действие", fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
         }
         if (state.securities.isEmpty()) {
-            item { EmptyState("Портфель пока пуст", "Добавьте первую бумагу, затем запишите покупку.",
-                actionLabel = "Добавить первую бумагу", onAction = onAddSecurity) }
+            item {
+                EmptyState("Портфель пока пуст", "Добавьте первую бумагу, затем запишите покупку.",
+                    actionLabel = "Добавить первую бумагу", onAction = onAdd)
+            }
         } else {
             item { Text("Мои бумаги", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
             items(summary.positions.filter { it.quantityMicros > 0 }.take(4), key = { it.security.id }) { position ->
@@ -236,28 +329,47 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
 private fun categoryValue(summary: PortfolioMath.Summary, kind: String) = summary.positions
     .filter { it.security.kind == kind }.sumOf { it.currentValueMinor }
 
+private fun categoryPerformance(summary: PortfolioMath.Summary, kind: String): String {
+    val positions = summary.positions.filter { it.security.kind == kind && it.quantityMicros > 0 }
+    val basis = positions.sumOf { it.costMinor }
+    if (basis <= 0L) return "Нет позиций"
+    val gain = positions.sumOf { it.unrealizedMinor }
+    return String.format(Locale.forLanguageTag("ru-RU"), "%+.1f%%",
+        gain.toDouble() * 100.0 / basis.toDouble())
+}
+
 @Composable private fun PortfolioHero(summary: PortfolioMath.Summary) {
     GlassCard(Modifier.fillMaxWidth(), elevated = true) {
-        Text("Стоимость портфеля", color = SoftText, fontSize = 13.sp)
-        Spacer(Modifier.height(8.dp))
-        AnimatedContent(targetState = summary.marketValueMinor, label = "portfolio-total") { current ->
-            Text(MoneyMath.formatMoney(current), fontSize = 33.sp, lineHeight = 38.sp, fontWeight = FontWeight.Bold)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Стоимость портфеля", color = SoftText, fontSize = 12.sp, modifier = Modifier.weight(1f))
+            Icon(Icons.Rounded.ShowChart, contentDescription = null, tint = OrangeLight, modifier = Modifier.size(22.dp))
+        }
+        Spacer(Modifier.height(6.dp))
+        AnimatedContent(targetState = summary.marketValueMinor, label = "portfolio-total", transitionSpec = {
+            androidx.compose.animation.fadeIn(tween(220)) togetherWith androidx.compose.animation.fadeOut(tween(130))
+        }) { current ->
+            Text(MoneyMath.formatMoney(current), color = StrongText,
+                fontSize = 34.sp, lineHeight = 40.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.TrendingUp, null, tint = if (summary.unrealizedMinor >= 0) Green else Red, modifier = Modifier.size(19.dp))
+            Icon(Icons.Rounded.TrendingUp, null, tint = if (summary.unrealizedMinor >= 0) Green else Red,
+                modifier = Modifier.size(17.dp))
             Spacer(Modifier.width(6.dp))
-            Text("По открытым позициям: ${signedMoney(summary.unrealizedMinor)}", color = if (summary.unrealizedMinor >= 0) Green else Red, fontSize = 13.sp)
+            Text("Открытые позиции: ${signedMoney(summary.unrealizedMinor)}",
+                color = if (summary.unrealizedMinor >= 0) Green else Red,
+                fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         }
-        Spacer(Modifier.height(13.dp))
-        HorizontalDivider(color = Color.White.copy(alpha = .14f))
-        Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Spacer(Modifier.height(10.dp))
+        HorizontalDivider(color = Color.White.copy(alpha = .13f))
+        Spacer(Modifier.height(11.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Metric("Результат продаж", signedMoney(summary.realizedMinor), Modifier.weight(1f))
             Metric("Купоны + дивиденды", MoneyMath.formatMoney(summary.couponsMinor + summary.dividendsMinor), Modifier.weight(1f))
         }
-        Spacer(Modifier.height(11.dp))
-        Text("Оценка по последним введённым ценам. Деньги учитываются в «Кошельке».", color = SoftText, fontSize = 11.sp, lineHeight = 15.sp)
+        Spacer(Modifier.height(10.dp))
+        Text("Цены бумаг введены вручную. Денежные счета — в «Кошельке».",
+            color = SoftText, fontSize = 11.sp, lineHeight = 15.sp)
     }
 }
 
@@ -271,70 +383,123 @@ private fun categoryValue(summary: PortfolioMath.Summary, kind: String) = summar
 
 private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyMath.formatMoney(kotlin.math.abs(minor))
 
-@Composable private fun CategoryRow(title: String, icon: ImageVector, tint: Color, minor: Long, onClick: () -> Unit) {
+@Composable private fun CategoryRow(
+    title: String, icon: ImageVector, tint: Color, minor: Long, supporting: String, onClick: () -> Unit
+) {
     GlassCard(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(41.dp).clip(RoundedCornerShape(13.dp)).background(tint.copy(alpha = .15f)), contentAlignment = Alignment.Center) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            val shape = RoundedCornerShape(13.dp)
+            Box(
+                Modifier.size(42.dp).clip(shape)
+                    .background(Brush.linearGradient(listOf(tint.copy(alpha = .28f), tint.copy(alpha = .10f))))
+                    .border(1.dp, tint.copy(alpha = .16f), shape),
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(23.dp))
             }
             Spacer(Modifier.width(12.dp))
-            Text(title, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-            Text(MoneyMath.formatMoney(minor), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Spacer(Modifier.width(3.dp))
-            Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = SoftText)
+            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
+                modifier = Modifier.weight(1f), maxLines = 1)
+            Column(horizontalAlignment = Alignment.End) {
+                Text(MoneyMath.formatMoney(minor), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(supporting, color = if (supporting.startsWith("+")) Green
+                    else if (supporting.startsWith("−") || supporting.startsWith("-")) Red else SoftText,
+                    fontSize = 11.sp)
+            }
+            Spacer(Modifier.width(5.dp))
+            Icon(Icons.Rounded.ChevronRight, contentDescription = null,
+                tint = SoftText, modifier = Modifier.size(19.dp))
         }
     }
 }
 
 @Composable private fun AssetsPage(
-    state: InvestmentsRepository.DashboardState, onAdd: () -> Unit, onSecurity: (String) -> Unit
+    state: InvestmentsRepository.DashboardState, onAdd: () -> Unit,
+    onSecurity: (String) -> Unit, horizontalInset: androidx.compose.ui.unit.Dp
 ) {
     var kind by remember { mutableStateOf("ALL") }
-    val filtered = state.summary.positions.filter { if (kind == "ARCHIVE") it.security.archived else !it.security.archived && (kind == "ALL" || it.security.kind == kind) }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
+    val filtered = state.summary.positions.filter {
+        if (kind == "ARCHIVE") it.security.archived
+        else !it.security.archived && (kind == "ALL" || it.security.kind == kind)
+    }
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = horizontalInset, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(GlassSizes.sectionGap)
+    ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Мои бумаги", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                IconButton(onClick = onAdd) { Icon(Icons.Rounded.AddCircleOutline, contentDescription = "Добавить бумагу", tint = Orange) }
+            PageHeading("Мои бумаги") {
+                IconButton(onClick = onAdd, modifier = Modifier.size(48.dp)) {
+                    Icon(Icons.Rounded.AddCircleOutline, contentDescription = "Добавить бумагу",
+                        tint = OrangeLight, modifier = Modifier.size(26.dp))
+                }
             }
         }
         item {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                listOf("ALL" to "Все", "STOCK" to "Акции", "BOND" to "Облигации", "FUND" to "Фонды", "ARCHIVE" to "Архив").forEach { (code, text) ->
-                    FilterChip(selected = kind == code, onClick = { kind = code }, label = { Text(text, fontSize = 12.sp) })
+                listOf("ALL" to "Все", "STOCK" to "Акции", "BOND" to "Облигации",
+                    "FUND" to "Фонды", "ARCHIVE" to "Архив").forEach { (code, text) ->
+                    PremiumChip(selected = kind == code, title = text, onClick = { kind = code })
                 }
             }
         }
-        if (filtered.isEmpty()) item {
-            EmptyState("Пока нет бумаг", "Добавьте первую акцию, облигацию или фонд.",
-                actionLabel = "Добавить бумагу", onAction = onAdd)
+        if (filtered.isEmpty()) {
+            item {
+                EmptyState(
+                    if (kind == "ARCHIVE") "Архив пуст" else "Пока нет бумаг",
+                    if (kind == "ARCHIVE") "Архивированные бумаги появятся здесь."
+                    else "Добавьте первую акцию, облигацию или фонд.",
+                    actionLabel = if (kind == "ARCHIVE") null else "Добавить бумагу",
+                    onAction = if (kind == "ARCHIVE") null else onAdd
+                )
+            }
         }
-        items(filtered, key = { it.security.id }) { item -> PositionRow(item) { onSecurity(item.security.id) } }
+        items(filtered, key = { it.security.id }) { position ->
+            PositionRow(position) { onSecurity(position.security.id) }
+        }
     }
 }
 
 @Composable private fun PositionRow(position: PortfolioMath.Position, onClick: () -> Unit) {
+    val iconTone = when (position.security.kind) {
+        "BOND" -> Color(0xFFC4A1FF)
+        "FUND" -> Color(0xFF76C3FF)
+        else -> Orange
+    }
     GlassCard(Modifier.fillMaxWidth().clickable(onClick = onClick)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(43.dp).clip(RoundedCornerShape(14.dp)).background(Orange.copy(alpha = .15f)), contentAlignment = Alignment.Center) {
-                Text(position.security.ticker.take(2), color = Orange, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(43.dp).clip(RoundedCornerShape(13.dp))
+                    .background(iconTone.copy(alpha = .19f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(position.security.ticker.take(2).uppercase(Locale.ROOT), color = iconTone,
+                    fontWeight = FontWeight.Bold, fontSize = 13.sp)
             }
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(position.security.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text("${position.security.ticker} · ${MoneyMath.formatQuantity(position.quantityMicros)} шт.", fontSize = 11.sp, color = SoftText)
+                Text(position.security.name, fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("${position.security.ticker} · ${MoneyMath.formatQuantity(position.quantityMicros)} шт.",
+                    fontSize = 11.sp, color = SoftText)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(MoneyMath.formatMoney(position.currentValueMinor), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                Text(signedMoney(position.unrealizedMinor), fontSize = 12.sp, color = if (position.unrealizedMinor >= 0L) Green else Red)
+                Text(signedMoney(position.unrealizedMinor), fontSize = 12.sp,
+                    color = if (position.unrealizedMinor >= 0L) Green else Red)
             }
+            Spacer(Modifier.width(4.dp))
+            Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = SoftText, modifier = Modifier.size(17.dp))
         }
     }
 }
 
 private data class Operation(val id: String, val source: String, val title: String, val detail: String, val time: Long, val delta: Long)
 
-@Composable private fun OperationsPage(state: InvestmentsRepository.DashboardState, onDelete: (String, String) -> Unit) {
+@Composable private fun OperationsPage(
+    state: InvestmentsRepository.DashboardState, onDelete: (String, String) -> Unit,
+    horizontalInset: androidx.compose.ui.unit.Dp
+) {
     var filter by remember { mutableStateOf("ALL") }
     val tickerMap = state.securities.associateBy { it.id }
     val operations = remember(state.trades, state.income, state.securities) {
@@ -348,76 +513,142 @@ private data class Operation(val id: String, val source: String, val title: Stri
                 tickerMap[income.securityId]?.ticker ?: "Бумага", income.happenedAt, income.amountMinor)
         }).sortedWith(compareByDescending<Operation> { it.time }.thenByDescending { it.id })
     }
-    val visible = operations.filter { filter == "ALL" || (filter == "TRADES" && it.source == "trade") ||
-        (filter == "INCOME" && it.source == "income") }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
-        item { Text("История операций", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
+    val visible = operations.filter {
+        filter == "ALL" || (filter == "BUY" && it.title == "Покупка") ||
+            (filter == "SELL" && it.title == "Продажа") ||
+            (filter == "INCOME" && it.source == "income")
+    }
+    val dateFormat = remember { SimpleDateFormat("dd MMMM yyyy", Locale.forLanguageTag("ru-RU")) }
+    val groups = visible.groupBy { dateFormat.format(Date(it.time)) }
+
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = horizontalInset, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(GlassSizes.sectionGap)
+    ) {
+        item { PageHeading("История операций") }
         item {
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("ALL" to "Все", "TRADES" to "Сделки", "INCOME" to "Выплаты").forEach { (code, text) ->
-                    FilterChip(selected = filter == code, onClick = { filter = code }, label = { Text(text) })
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                listOf("ALL" to "Все", "BUY" to "Покупки", "SELL" to "Продажи", "INCOME" to "Выплаты").forEach { (code, text) ->
+                    PremiumChip(selected = filter == code, title = text, onClick = { filter = code })
                 }
             }
         }
-        if (visible.isEmpty()) item { EmptyState("История пуста", "Добавьте покупку, продажу или выплату.") }
-        items(visible, key = { "${it.source}:${it.id}" }) { op ->
-            GlassCard(Modifier.fillMaxWidth().clickable { onDelete(op.source, op.id) }) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val positive = op.delta >= 0
-                    Box(Modifier.size(38.dp).clip(CircleShape).background(if (positive) Green.copy(alpha = .13f) else Orange.copy(alpha = .17f)), contentAlignment = Alignment.Center) {
-                        Icon(if (positive) Icons.Rounded.SouthWest else Icons.Rounded.NorthEast, null,
-                            tint = if (positive) Green else Orange, modifier = Modifier.size(20.dp))
+        if (visible.isEmpty()) {
+            item { EmptyState("История пуста", "Добавьте покупку, продажу или выплату.") }
+        } else {
+            groups.forEach { (date, list) ->
+                item(key = "date-$date") {
+                    Text(date, color = SoftText, fontSize = 12.sp, modifier = Modifier.padding(top = 7.dp))
+                }
+                items(list, key = { "${it.source}:${it.id}" }) { op ->
+                    GlassCard(Modifier.fillMaxWidth().clickable { onDelete(op.source, op.id) }) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            val positive = op.delta >= 0
+                            val isCoupon = op.title == "Купон"
+                            val color = if (isCoupon) OrangeLight else if (positive) Green else Red
+                            Box(
+                                Modifier.size(40.dp).clip(RoundedCornerShape(13.dp))
+                                    .background(color.copy(alpha = .17f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(if (isCoupon) Icons.Rounded.ConfirmationNumber
+                                    else if (positive) Icons.Rounded.SouthWest else Icons.Rounded.NorthEast,
+                                    null, tint = color, modifier = Modifier.size(21.dp))
+                            }
+                            Spacer(Modifier.width(11.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(op.title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                                Text(op.detail, fontSize = 11.sp, color = SoftText, maxLines = 1)
+                            }
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(signedMoney(op.delta), color = if (positive) Green else StrongText,
+                                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                Text(SimpleDateFormat("HH:mm", Locale.forLanguageTag("ru-RU")).format(Date(op.time)),
+                                    color = SoftText, fontSize = 10.sp)
+                            }
+                        }
                     }
-                    Spacer(Modifier.width(11.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(op.title, fontWeight = FontWeight.Medium)
-                        Text(op.detail, fontSize = 12.sp, color = SoftText)
-                        Text(SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.forLanguageTag("ru-RU")).format(Date(op.time)), fontSize = 10.sp, color = SoftText)
-                    }
-                    Text(signedMoney(op.delta), color = if (positive) Green else Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                    Icon(Icons.Rounded.MoreVert, contentDescription = "Удалить запись", tint = SoftText, modifier = Modifier.size(18.dp))
                 }
             }
         }
-        item { Text("Нажмите на операцию для удаления с подтверждением.", color = SoftText, fontSize = 11.sp) }
+        if (visible.isNotEmpty()) {
+            item { Text("Нажмите на операцию, чтобы удалить её с подтверждением.",
+                color = SoftText, fontSize = 11.sp) }
+        }
     }
 }
 
-@Composable private fun AnalyticsPage(state: InvestmentsRepository.DashboardState) {
+@Composable private fun AnalyticsPage(
+    state: InvestmentsRepository.DashboardState, horizontalInset: androidx.compose.ui.unit.Dp
+) {
     val summary = state.summary
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { Text("Аналитика", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-        item { GlassCard(Modifier.fillMaxWidth()) {
-            Text("Структура портфеля", fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(14.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val entries = listOf(categoryValue(summary,"STOCK"), categoryValue(summary,"BOND"), categoryValue(summary,"FUND"))
-                Donut(entries, Modifier.size(132.dp))
-                Spacer(Modifier.width(16.dp))
-                Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                    Breakdown("Акции", entries[0], Orange)
-                    Breakdown("Облигации", entries[1], Color(0xFFC4A1FF))
-                    Breakdown("Фонды", entries[2], Color(0xFF76C3FF))
+    val types = listOf(categoryValue(summary, "STOCK"), categoryValue(summary, "BOND"), categoryValue(summary, "FUND"))
+    val payments = listOf(summary.dividendsMinor, summary.couponsMinor)
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = horizontalInset, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(GlassSizes.sectionGap)
+    ) {
+        item { PageHeading("Аналитика") }
+        item {
+            GlassCard(Modifier.fillMaxWidth(), elevated = true) {
+                Text("Структура портфеля", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Spacer(Modifier.height(14.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Donut(types, Modifier.size(122.dp))
+                    Spacer(Modifier.width(18.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(11.dp), modifier = Modifier.weight(1f)) {
+                        Breakdown("Акции", types[0], Orange)
+                        Breakdown("Облигации", types[1], Color(0xFFC4A1FF))
+                        Breakdown("Фонды", types[2], Color(0xFF76C3FF))
+                    }
                 }
             }
-        } }
-        item { GlassCard(Modifier.fillMaxWidth()) {
-            Text("Доходность", fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(10.dp))
-            Metric("Нереализованная прибыль/убыток", signedMoney(summary.unrealizedMinor))
-            Spacer(Modifier.height(12.dp))
-            Metric("Результат закрытых сделок", signedMoney(summary.realizedMinor))
-            Spacer(Modifier.height(12.dp))
-            Metric("Дивиденды", MoneyMath.formatMoney(summary.dividendsMinor))
-            Spacer(Modifier.height(12.dp))
-            Metric("Купоны", MoneyMath.formatMoney(summary.couponsMinor))
-        } }
-        item { GlassCard(Modifier.fillMaxWidth()) {
-            Text("Оценка бумаг", fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(8.dp))
-            Text("Рыночные цены пока вводятся вручную. Исторические графики и ежедневная доходность появятся после подключения проверенного источника котировок.",
-                color = SoftText, fontSize = 12.sp, lineHeight = 18.sp)
-        } }
+        }
+        item {
+            GlassCard(Modifier.fillMaxWidth()) {
+                Text("Доходность", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Spacer(Modifier.height(11.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Metric("Открытые позиции", signedMoney(summary.unrealizedMinor), Modifier.weight(1f))
+                    Metric("Закрытые сделки", signedMoney(summary.realizedMinor), Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(color = Color.White.copy(alpha = .12f))
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Metric("Дивиденды", MoneyMath.formatMoney(summary.dividendsMinor), Modifier.weight(1f))
+                    Metric("Купоны", MoneyMath.formatMoney(summary.couponsMinor), Modifier.weight(1f))
+                }
+            }
+        }
+        item {
+            GlassCard(Modifier.fillMaxWidth()) {
+                Text("Доходы по категориям", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Donut(payments, Modifier.size(104.dp))
+                    Spacer(Modifier.width(17.dp))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Breakdown("Дивиденды", summary.dividendsMinor, Orange)
+                        Breakdown("Купоны", summary.couponsMinor, Color(0xFFC4A1FF))
+                    }
+                }
+            }
+        }
+        item {
+            GlassCard(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Info, contentDescription = null, tint = OrangeLight, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Оценка бумаг", fontWeight = FontWeight.SemiBold)
+                }
+                Spacer(Modifier.height(8.dp))
+                Text("Рыночные цены пока вводятся вручную. Исторические графики и ежедневная доходность появятся после подключения проверенного источника котировок.",
+                    color = SoftText, fontSize = 12.sp, lineHeight = 18.sp)
+            }
+        }
     }
 }
 
@@ -448,79 +679,98 @@ private data class Operation(val id: String, val source: String, val title: Stri
     }
 }
 
-@Composable private fun SettingsPage(state: InvestmentsRepository.DashboardState) {
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
-        item { Text("Настройки и связь", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) }
-        item { GlassCard(Modifier.fillMaxWidth()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Sync, null, tint = Orange)
-                Spacer(Modifier.width(9.dp))
-                Text("Связь с Кошельком", fontWeight = FontWeight.SemiBold)
+@Composable private fun SettingsPage(
+    state: InvestmentsRepository.DashboardState, horizontalInset: androidx.compose.ui.unit.Dp
+) {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = horizontalInset, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(GlassSizes.sectionGap)
+    ) {
+        item { PageHeading("Настройки и связь") }
+        item {
+            GlassCard(Modifier.fillMaxWidth(), elevated = true) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Sync, null, tint = OrangeLight, modifier = Modifier.size(23.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Связь с Кошельком", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                }
+                Spacer(Modifier.height(14.dp))
+                Text("Счета из Кошелька: ${state.accounts.size}", fontSize = 13.sp)
+                Spacer(Modifier.height(5.dp))
+                Text("Событий без подтверждения: ${state.pendingEvents}", fontSize = 13.sp,
+                    color = if (state.pendingEvents > 0) OrangeLight else Green)
+                Spacer(Modifier.height(12.dp))
+                Text("Двусторонняя синхронизация заработает после установки адаптера в walletfree и настройки доверенной подписи. До этого операции хранятся локально и не меняют баланс Кошелька.",
+                    color = SoftText, fontSize = 12.sp, lineHeight = 18.sp)
             }
-            Spacer(Modifier.height(12.dp))
-            Text("Счета из Кошелька: ${state.accounts.size}", fontSize = 13.sp)
-            Text("Событий без подтверждения: ${state.pendingEvents}", fontSize = 13.sp, color = if (state.pendingEvents > 0) OrangeLight else Green)
-            Spacer(Modifier.height(9.dp))
-            Text("Двусторонняя синхронизация заработает после установки адаптера в walletfree и настройки доверенной подписи. До этого операции хранятся локально и не меняют баланс Кошелька.", color = SoftText, fontSize = 12.sp, lineHeight = 18.sp)
-        } }
-        item { GlassCard(Modifier.fillMaxWidth()) {
-            Text("Подключённые брокерские счета", fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(10.dp))
-            if (state.accounts.isEmpty()) Text("Нет счетов. Их создаёт и передаёт Кошелёк.", color = SoftText, fontSize = 12.sp)
-            state.accounts.forEach { account ->
-                Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                    Text(account.name, fontSize = 13.sp)
-                    Text(MoneyMath.formatMoney(account.balanceMinor), fontSize = 13.sp)
+        }
+        item {
+            GlassCard(Modifier.fillMaxWidth()) {
+                Text("Подключённые брокерские счета", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Spacer(Modifier.height(10.dp))
+                if (state.accounts.isEmpty()) Text("Нет счетов. Их создаёт и передаёт Кошелёк.", color = SoftText, fontSize = 12.sp)
+                state.accounts.forEach { account ->
+                    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(account.name, fontSize = 13.sp)
+                        Text(MoneyMath.formatMoney(account.balanceMinor), fontSize = 13.sp)
+                    }
                 }
             }
-        } }
-        item { GlassCard(Modifier.fillMaxWidth()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Lock, null, tint = Green)
-                Spacer(Modifier.width(9.dp))
-                Text("Конфиденциальность", fontWeight = FontWeight.SemiBold)
+        }
+        item {
+            GlassCard(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Lock, null, tint = Green, modifier = Modifier.size(22.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Конфиденциальность", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                }
+                Spacer(Modifier.height(9.dp))
+                Text("Данные хранятся в локальной базе. Межпрограммный обмен ограничен цифровой подписью. Интернет не требуется.",
+                    color = SoftText, fontSize = 12.sp, lineHeight = 18.sp)
             }
-            Spacer(Modifier.height(8.dp))
-            Text("Данные хранятся в локальной базе. Разрешение для межпрограммного обмена ограничено цифровой подписью. Интернет не требуется.", color = SoftText, fontSize = 12.sp, lineHeight = 18.sp)
-        } }
-        item { Text("Инвестиции 1.0.1 · Android 8.0+", color = SoftText, fontSize = 12.sp) }
+        }
+        item { Text("Инвестиции 1.0.2 · Android 8.0+", color = SoftText, fontSize = 12.sp,
+            modifier = Modifier.padding(top = 8.dp)) }
     }
 }
 
 @Composable private fun ActionEntry(title: String, icon: ImageVector, action: () -> Unit) {
     GlassCard(Modifier.fillMaxWidth().clickable(onClick = action)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = Orange)
-            Spacer(Modifier.width(13.dp))
-            Text(title, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium)
-            Icon(Icons.Rounded.ChevronRight, null, tint = SoftText)
+            val shape = RoundedCornerShape(12.dp)
+            Box(Modifier.size(35.dp).clip(shape).background(Orange.copy(alpha = .16f)), contentAlignment = Alignment.Center) {
+                Icon(icon, null, tint = OrangeLight, modifier = Modifier.size(21.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(title, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium, fontSize = 14.sp)
+            Icon(Icons.Rounded.ChevronRight, null, tint = SoftText, modifier = Modifier.size(18.dp))
         }
     }
 }
 
 @Composable private fun EmptyState(
     title: String, subtitle: String,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null
+    actionLabel: String? = null, onAction: (() -> Unit)? = null
 ) {
     GlassCard(Modifier.fillMaxWidth(), elevated = true) {
         Box(
-            Modifier.size(42.dp).clip(RoundedCornerShape(14.dp))
-                .background(Orange.copy(alpha = .17f)),
+            Modifier.size(41.dp).clip(RoundedCornerShape(13.dp)).background(Orange.copy(alpha = .19f)),
             contentAlignment = Alignment.Center
         ) {
             Icon(Icons.Rounded.Inventory2, contentDescription = null, tint = OrangeLight)
         }
-        Spacer(Modifier.height(12.dp))
-        Text(title, color = Color(0xFFF9F8FA), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+        Spacer(Modifier.height(10.dp))
+        Text(title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
         Spacer(Modifier.height(5.dp))
         Text(subtitle, color = SoftText, fontSize = 12.sp, lineHeight = 17.sp)
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.height(12.dp))
-            Button(onClick = onAction, shape = RoundedCornerShape(13.dp)) {
+            Button(onClick = onAction, shape = RoundedCornerShape(13.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Orange, contentColor = Color(0xFF271305))) {
                 Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(actionLabel, fontWeight = FontWeight.SemiBold)
+                Text(actionLabel, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
             }
         }
     }
@@ -531,7 +781,7 @@ private data class Operation(val id: String, val source: String, val title: Stri
     onTrade: (FormKind) -> Unit, onPrice: () -> Unit, onArchive: () -> Unit
 ) {
     val holding = state.summary.positions.first { it.security.id == asset.id }
-    Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 36.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+    Column(Modifier.widthIn(max = GlassSizes.maxContentWidth).fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 36.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         Text(asset.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text("${asset.ticker} · ${kindLabel(asset.kind)}", color = SoftText)
         GlassCard(Modifier.fillMaxWidth()) {
