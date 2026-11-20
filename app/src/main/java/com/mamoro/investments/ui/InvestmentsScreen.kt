@@ -2,6 +2,7 @@
 
 package com.mamoro.investments.ui
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.togetherWith
@@ -117,7 +118,11 @@ internal fun InvestmentDashboard(
             Modifier.fillMaxSize().safeDrawingPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(paneModifier) { TopBar(
+            Box(paneModifier) {
+                if (pager.currentPage == 2) HistoryTopBar(onBack = {
+                    scope.launch { pager.animateScrollToPage(0, animationSpec = tween(180)) }
+                }, horizontalInset = horizontalInset)
+                else TopBar(
                 onMenu = { scope.launch { pager.animateScrollToPage(4, animationSpec = tween(180)) } },
                 onSearch = { scope.launch { pager.animateScrollToPage(1, animationSpec = tween(180)) } },
                 onHistory = { scope.launch { pager.animateScrollToPage(2, animationSpec = tween(180)) } },
@@ -145,10 +150,14 @@ internal fun InvestmentDashboard(
                     }
                 }
             }
-            Box(paneModifier) {
+            AnimatedVisibility(visible = pager.currentPage != 2,
+                enter = androidx.compose.animation.fadeIn(tween(160)) + androidx.compose.animation.expandVertically(tween(160)),
+                exit = androidx.compose.animation.fadeOut(tween(160)) + androidx.compose.animation.shrinkVertically(tween(160))) {
+              Box(paneModifier) {
                 NavigationGlass(pager.currentPage, onSelect = { page ->
                     scope.launch { pager.animateScrollToPage(page, animationSpec = tween(200)) }
                 })
+              }
             }
         }
         SnackbarHost(hostState = snackbar,
@@ -295,21 +304,18 @@ internal fun InvestmentDashboard(
     }
 }
 
-/** Orange pill with a polished glass edge, used consistently by both filters. */
+/** The visible pill stays compact; its touch target remains at least 48 dp. */
 @Composable private fun PremiumChip(selected: Boolean, title: String, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
-    val background = if (selected)
-        Brush.verticalGradient(listOf(Color(0xFFFFB568), Color(0xFFFF902A)))
-    else Brush.verticalGradient(listOf(Color(0xA43B3B44), Color(0xD221232B)))
-    Box(
-        Modifier.heightIn(min = 48.dp).clip(shape).background(background)
-            .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = .07f), Color.Transparent)), shape)
-            .border(1.dp, if (selected) OrangeLight else Color.White.copy(alpha = .30f), shape)
-            .clickable(onClick = onClick).padding(horizontal = 15.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(title, color = if (selected) Color(0xFF291507) else StrongText,
-            fontSize = 12.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium)
+    val progress by animateFloatAsState(if (selected) 1f else 0f, tween(160), label = "filter-highlight")
+    val shape = RoundedCornerShape(18.dp)
+    Box(Modifier.heightIn(min = 48.dp).glassClick(onClick), contentAlignment = Alignment.Center) {
+        Box(Modifier.heightIn(min = 34.dp).clip(shape).glassSurface(corner = 18f)
+            .background(Brush.verticalGradient(listOf(OrangeLight.copy(alpha = progress), Orange.copy(alpha = progress))))
+            .border(.8.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = .56f), OrangeLight.copy(alpha = .20f))), shape)
+            .padding(horizontal = 16.dp, vertical = 7.dp)) {
+            Text(title, color = androidx.compose.ui.graphics.lerp(StrongText, Color(0xFF201400), progress),
+                fontSize = 12.sp, lineHeight = 18.sp, fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal)
+        }
     }
 }
 
@@ -603,39 +609,51 @@ private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyM
     }
 }
 
-private data class Operation(val id: String, val source: String, val title: String, val detail: String, val time: Long, val delta: Long)
+private data class Operation(
+    val id: String, val source: String, val kind: String, val title: String,
+    val detail: String, val time: Long, val delta: Long
+)
+
+@Composable private fun HistoryTopBar(onBack: () -> Unit, horizontalInset: androidx.compose.ui.unit.Dp) {
+    Box(Modifier.fillMaxWidth().height(56.dp)) {
+        Text("История операций", color = StrongText, fontSize = 22.sp, fontWeight = FontWeight.Medium,
+            modifier = Modifier.align(Alignment.Center))
+        IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart)
+            .padding(start = horizontalInset - 4.dp).size(48.dp)) {
+            Icon(Icons.Rounded.ArrowBack, "Назад к портфелю", tint = StrongText, modifier = Modifier.size(24.dp))
+        }
+    }
+}
 
 @Composable private fun OperationsPage(
     state: InvestmentsRepository.DashboardState, onDelete: (String, String) -> Unit,
     horizontalInset: androidx.compose.ui.unit.Dp
 ) {
     var filter by rememberSaveable { mutableStateOf("ALL") }
-    val tickerMap = state.securities.associateBy { it.id }
     val operations = remember(state.trades, state.income, state.securities) {
-        (state.trades.map { trade ->
+        val securities = state.securities.associateBy { it.id }
+        (state.trades.filterNot { it.deleted }.map { trade ->
             val delta = MoneyMath.totalMinor(trade.unitPriceMinor, trade.quantityMicros)
-            Operation(trade.id, "trade", if (trade.side == "BUY") "Покупка" else "Продажа",
-                "${tickerMap[trade.securityId]?.ticker ?: "Бумага"} · ${MoneyMath.formatQuantity(trade.quantityMicros)} шт.",
+            Operation(trade.id, "trade", trade.side, if (trade.side == "BUY") "Покупка" else "Продажа",
+                "${securities[trade.securityId]?.name ?: "Бумага"} · ${MoneyMath.formatQuantity(trade.quantityMicros)} шт.",
                 trade.happenedAt, if (trade.side == "BUY") -(delta + trade.feeMinor) else delta - trade.feeMinor)
-        } + state.income.map { income ->
-            Operation(income.id, "income", if (income.kind == "DIVIDEND") "Дивиденд" else "Купон",
-                tickerMap[income.securityId]?.ticker ?: "Бумага", income.happenedAt, income.amountMinor)
+        } + state.income.filterNot { it.deleted }.map { income ->
+            Operation(income.id, "income", income.kind,
+                if (income.kind == "DIVIDEND") "Выплата дивидендов" else "Выплата купона",
+                securities[income.securityId]?.name ?: "Бумага", income.happenedAt, income.amountMinor)
         }).sortedWith(compareByDescending<Operation> { it.time }.thenByDescending { it.id })
     }
-    val visible = operations.filter {
-        filter == "ALL" || (filter == "BUY" && it.title == "Покупка") ||
-            (filter == "SELL" && it.title == "Продажа") ||
-            (filter == "INCOME" && it.source == "income")
-    }
-    val dateFormat = remember { SimpleDateFormat("dd MMMM yyyy", Locale.forLanguageTag("ru-RU")) }
-    val groups = visible.groupBy { dateFormat.format(Date(it.time)) }
-
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = horizontalInset, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(GlassSizes.sectionGap)
-    ) {
-        item { PageHeading("История операций") }
+    val visible = remember(operations, filter) { operations.filter {
+        filter == "ALL" || it.kind == filter || (filter == "INCOME" && it.source == "income")
+    } }
+    val zone = java.time.ZoneId.systemDefault()
+    val today = java.time.LocalDate.now(zone)
+    val groups = visible.groupBy { java.time.Instant.ofEpochMilli(it.time).atZone(zone).toLocalDate() }
+    val dateFormat = remember { java.time.format.DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("ru-RU")) }
+    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.forLanguageTag("ru-RU")) }
+    LazyColumn(Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = horizontalInset, end = horizontalInset, top = 22.dp, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 listOf("ALL" to "Все", "BUY" to "Покупки", "SELL" to "Продажи", "INCOME" to "Выплаты").forEach { (code, text) ->
@@ -643,47 +661,59 @@ private data class Operation(val id: String, val source: String, val title: Stri
                 }
             }
         }
-        if (visible.isEmpty()) {
-            item { EmptyState("История пуста", "Добавьте покупку, продажу или выплату.") }
-        } else {
-            groups.forEach { (date, list) ->
-                item(key = "date-$date") {
-                    Text(date, color = SoftText, fontSize = 12.sp, modifier = Modifier.padding(top = 7.dp))
-                }
-                items(list, key = { "${it.source}:${it.id}" }) { op ->
-                    GlassCard(Modifier.fillMaxWidth().clickable { onDelete(op.source, op.id) }, compact = true) {
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            val positive = op.delta >= 0
-                            val isCoupon = op.title == "Купон"
-                            val color = if (isCoupon) OrangeLight else if (positive) Green else Red
-                            Box(
-                                Modifier.size(40.dp).clip(RoundedCornerShape(13.dp))
-                                    .background(color.copy(alpha = .17f)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(if (isCoupon) Icons.Rounded.ConfirmationNumber
-                                    else if (positive) Icons.Rounded.SouthWest else Icons.Rounded.NorthEast,
-                                    null, tint = color, modifier = Modifier.size(21.dp))
-                            }
-                            Spacer(Modifier.width(11.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(op.title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                                Text(op.detail, fontSize = 11.sp, color = SoftText, maxLines = 1)
-                            }
-                            Column(horizontalAlignment = Alignment.End) {
-                                Text(signedMoney(op.delta), color = if (positive) Green else StrongText,
-                                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
-                                Text(SimpleDateFormat("HH:mm", Locale.forLanguageTag("ru-RU")).format(Date(op.time)),
-                                    color = SoftText, fontSize = 10.sp)
+        if (visible.isEmpty()) item { EmptyState("История пуста", "Добавьте покупку, продажу или выплату.") }
+        items(groups.entries.toList(), key = { "date-${it.key}" }) { (date, list) ->
+            Column(Modifier.fillMaxWidth().animateItem().padding(top = 10.dp)) {
+                val prefix = when (date) { today -> "Сегодня, "; today.minusDays(1) -> "Вчера, "; else -> "" }
+                Text(prefix + date.format(dateFormat) + if (date.year != today.year) " ${date.year}" else "",
+                    color = StrongText, fontSize = 15.sp, modifier = Modifier.padding(start = 4.dp))
+                Spacer(Modifier.height(10.dp))
+                Column(Modifier.fillMaxWidth().animateContentSize(tween(180))
+                    .shadow(5.dp, RoundedCornerShape(19.dp)).clip(RoundedCornerShape(19.dp))
+                    .glassSurface(corner = 19f).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                    list.forEachIndexed { index, op ->
+                        key(op.source, op.id) {
+                            val appearance = remember { androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } }
+                            AnimatedVisibility(visibleState = appearance,
+                                enter = androidx.compose.animation.fadeIn(tween(180)) + androidx.compose.animation.expandVertically(tween(180))) {
+                                OperationRow(op, timeFormat) { onDelete(op.source, op.id) }
                             }
                         }
+                        if (index != list.lastIndex) HorizontalDivider(Modifier.padding(start = 54.dp),
+                            thickness = .6.dp, color = Color.White.copy(alpha = .16f))
                     }
                 }
             }
         }
-        if (visible.isNotEmpty()) {
-            item { Text("Нажмите на операцию, чтобы удалить её с подтверждением.",
-                color = SoftText, fontSize = 11.sp) }
+    }
+}
+
+@Composable private fun OperationRow(op: Operation, timeFormat: SimpleDateFormat, onClick: () -> Unit) {
+    val largeFont = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.2f
+    val tint = when (op.kind) { "SELL" -> Red; "COUPON" -> Orange; else -> Green }
+    val icon = when (op.kind) {
+        "BUY" -> Icons.Rounded.ArrowDownward
+        "SELL" -> Icons.Rounded.ArrowUpward
+        "DIVIDEND" -> Icons.Rounded.Percent
+        else -> Icons.Outlined.ConfirmationNumber
+    }
+    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).glassClick(onClick).padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        GlassBadge(icon, tint, Modifier.size(42.dp))
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(op.title, color = StrongText, fontSize = 16.sp, fontWeight = FontWeight.Normal,
+                maxLines = if (largeFont) 2 else 1, overflow = TextOverflow.Ellipsis)
+            Text(op.detail, color = StrongText.copy(alpha = .86f), fontSize = 13.sp, lineHeight = 18.sp,
+                maxLines = if (largeFont) 2 else 1, overflow = TextOverflow.Ellipsis)
+            if (largeFont) Text(signedMoney(op.delta), color = if (op.delta >= 0) Green else StrongText,
+                fontSize = 16.sp, fontWeight = FontWeight.Medium)
+        }
+        Spacer(Modifier.width(6.dp))
+        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            if (!largeFont) Text(signedMoney(op.delta), color = if (op.delta >= 0) Green else StrongText,
+                fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            Text(timeFormat.format(Date(op.time)), color = StrongText.copy(alpha = .86f), fontSize = 13.sp)
         }
     }
 }
