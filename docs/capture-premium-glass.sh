@@ -4,6 +4,7 @@ set -euo pipefail
 capture_dir="${CAPTURE_DIR:-build/outputs/premium-glass}"
 capture_apk="${CAPTURE_APK:-app/build/outputs/apk/debug/app-debug.apk}"
 mkdir -p "$capture_dir"
+trap 'adb logcat -d > "$capture_dir/logcat.txt" || true' EXIT
 adb install -r "$capture_apk" </dev/null
 adb shell settings put global sysui_demo_allowed 1
 adb shell am broadcast -a com.android.systemui.demo --es command enter
@@ -16,20 +17,34 @@ adb shell wm density 480
 
 snapshot() {
     local capture_mode="$1" capture_name="$2" capture_text="$3"
+    # The image's Pixel Launcher can show an ANR while display density changes.
+    # It is unrelated to this app and is not needed for explicit activity launches.
+    adb shell am force-stop com.google.android.apps.nexuslauncher || true
     adb shell am force-stop com.mamoro.investments
     adb shell am start -W -n com.mamoro.investments/.ui.PremiumCaptureActivity --es screen "$capture_mode"
-    sleep 2
-    adb shell uiautomator dump /sdcard/premium-glass-ui.xml
-    adb pull /sdcard/premium-glass-ui.xml "$capture_dir/$capture_name.xml"
-    python3 - "$capture_dir/$capture_name.xml" "$capture_text" <<'PY'
+    for capture_attempt in 1 2 3 4 5; do
+        sleep 2
+        adb shell uiautomator dump /sdcard/premium-glass-ui.xml
+        adb pull /sdcard/premium-glass-ui.xml "$capture_dir/$capture_name.xml"
+        if python3 - "$capture_dir/$capture_name.xml" "$capture_text" <<'PYCHECK'
 import sys
 import xml.etree.ElementTree as ET
 root = ET.parse(sys.argv[1]).getroot()
 labels = ' '.join(n.attrib.get('text','')+' '+n.attrib.get('content-desc','') for n in root.iter())
+sys.exit(0 if sys.argv[2] in labels else 1)
+PYCHECK
+        then
+            break
+        fi
+    done
+    adb exec-out screencap -p > "$capture_dir/$capture_name.png"
+    python3 - "$capture_dir/$capture_name.xml" "$capture_text" <<'PYFINAL'
+import sys
+import xml.etree.ElementTree as ET
+labels = ' '.join(n.attrib.get('text','')+' '+n.attrib.get('content-desc','') for n in ET.parse(sys.argv[1]).iter())
 assert sys.argv[2] in labels, 'Expected screen not visible: '+sys.argv[2]
 print('Visible screen verified: '+sys.argv[2])
-PY
-    adb exec-out screencap -p > "$capture_dir/$capture_name.png"
+PYFINAL
     test -s "$capture_dir/$capture_name.png"
 }
 
