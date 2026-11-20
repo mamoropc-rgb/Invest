@@ -7,6 +7,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -14,6 +15,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.activity.compose.BackHandler
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.gestures.scrollable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,7 +33,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -34,6 +44,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
@@ -53,19 +66,32 @@ import java.util.Date
 import java.util.Locale
 
 private val labels = listOf("Портфель", "Активы", "Операции", "Аналитика", "Ещё")
-private val tabIcons = listOf(Icons.Rounded.ShowChart, Icons.Rounded.Layers, Icons.Rounded.SwapHoriz, Icons.Rounded.PieChart, Icons.Rounded.MoreHoriz)
+private val tabIcons = listOf(Icons.Rounded.BarChart, Icons.Rounded.Layers, Icons.Rounded.SwapHoriz, Icons.Rounded.PieChartOutline, Icons.Rounded.MoreHoriz)
 
 @Composable
 fun InvestmentsScreen(vm: InvestmentsViewModel) {
-    val snapshot by vm.dashboard.collectAsState()
-    val state = snapshot
-    val pager = rememberPagerState(pageCount = { 5 })
+    val state by vm.dashboard.collectAsState()
+    InvestmentDashboard(vm, state)
+}
+
+/** Shared by the real activity and debug-only visual captures; never seeds the database. */
+@Composable
+internal fun InvestmentDashboard(
+    vm: InvestmentsViewModel, state: InvestmentsRepository.DashboardState?,
+    initialPage: Int = 0, initiallyShowQuick: Boolean = false
+) {
+    val pager = rememberPagerState(initialPage = initialPage, pageCount = { 5 })
     val scope = rememberCoroutineScope()
-    var quickActions by remember { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
+    LaunchedEffect(pager.currentPage) { focus.clearFocus(force = true) }
+    var quickActions by rememberSaveable { mutableStateOf(initiallyShowQuick) }
     var form by remember { mutableStateOf<FormKind?>(null) }
     var chosenSecurity by remember { mutableStateOf<String?>(null) }
     var selectedDetail by remember { mutableStateOf<String?>(null) }
     var deleteItem by remember { mutableStateOf<Pair<String, String>?>(null) }
+    BackHandler(enabled = pager.currentPage != 0 && !quickActions && form == null && selectedDetail == null) {
+        scope.launch { pager.animateScrollToPage(0, animationSpec = tween(180)) }
+    }
     val message by vm.message.collectAsState()
     val snackbar = remember { SnackbarHostState() }
     LaunchedEffect(message) {
@@ -75,25 +101,20 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
     }
 // Both 6.55-inch phones and 12.1-inch tablets use the same centered,
     // constrained design grid. Compose uses dp rather than raw device pixels.
-    BoxWithConstraints(Modifier.fillMaxSize().background(OrangeBackground)) {
+    BoxWithConstraints(Modifier.fillMaxSize().premiumBackdrop()) {
         val isTablet = maxWidth >= 600.dp
         val maxPane = if (isTablet) GlassSizes.maxContentWidth else maxWidth
         val horizontalInset = if (isTablet) GlassSizes.tabletSidePadding else GlassSizes.phoneSidePadding
         val paneModifier = Modifier.widthIn(max = maxPane).fillMaxWidth()
-        Box(
-            modifier = Modifier.fillMaxSize().background(
-                Brush.radialGradient(
-                    listOf(Orange.copy(alpha = .16f), Orange.copy(alpha = .045f), Color.Transparent),
-                    center = androidx.compose.ui.geometry.Offset(230f, 1020f),
-                    radius = 1180f
-                )
-            )
-        )
         Column(
             Modifier.fillMaxSize().safeDrawingPadding(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(paneModifier) { TopBar(onAdd = { quickActions = true }, horizontalInset = horizontalInset) }
+            Box(paneModifier) { TopBar(
+                onMenu = { scope.launch { pager.animateScrollToPage(4, animationSpec = tween(180)) } },
+                onSearch = { scope.launch { pager.animateScrollToPage(1, animationSpec = tween(180)) } },
+                onHistory = { scope.launch { pager.animateScrollToPage(2, animationSpec = tween(180)) } },
+                horizontalInset = horizontalInset) }
             if (state == null) {
                 Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Orange)
@@ -102,7 +123,7 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
                 HorizontalPager(
                     state = pager,
                     modifier = Modifier.weight(1f).then(paneModifier),
-                    beyondViewportPageCount = 1
+                    beyondViewportPageCount = 4
                 ) { page ->
                     when (page) {
                         0 -> PortfolioPage(state,
@@ -110,7 +131,7 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
                             onQuick = { quickActions = true },
                             onAdd = { form = FormKind.NEW_SECURITY },
                             onSecurity = { selectedDetail = it }, horizontalInset = horizontalInset)
-                        1 -> AssetsPage(state, onAdd = { form = FormKind.NEW_SECURITY }, onSecurity = { selectedDetail = it }, horizontalInset = horizontalInset)
+                        1 -> AssetsPage(state, active = pager.currentPage == 1, onAdd = { form = FormKind.NEW_SECURITY }, onSecurity = { selectedDetail = it }, horizontalInset = horizontalInset)
                         2 -> OperationsPage(state, onDelete = { kind, id -> deleteItem = kind to id }, horizontalInset = horizontalInset)
                         3 -> AnalyticsPage(state, horizontalInset = horizontalInset)
                         else -> SettingsPage(state, horizontalInset = horizontalInset)
@@ -119,7 +140,7 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
             }
             Box(paneModifier) {
                 NavigationGlass(pager.currentPage, onSelect = { page ->
-                    scope.launch { pager.animateScrollToPage(page) }
+                    scope.launch { pager.animateScrollToPage(page, animationSpec = tween(200)) }
                 })
             }
         }
@@ -205,77 +226,50 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
     }
 }
 
-@Composable private fun TopBar(onAdd: () -> Unit, horizontalInset: androidx.compose.ui.unit.Dp) {
-    Row(
-        Modifier.fillMaxWidth().height(66.dp).padding(horizontal = horizontalInset),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        val shape = RoundedCornerShape(14.dp)
-        Box(
-            Modifier.size(42.dp).shadow(7.dp, shape)
-                .clip(shape)
-                .background(Brush.linearGradient(listOf(Color(0xFF513526), Color(0xFF211D22))))
-                .border(1.dp, Brush.linearGradient(listOf(OrangeLight.copy(alpha = .82f), Color.White.copy(alpha = .12f))), shape),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(Icons.Rounded.BarChart, contentDescription = null, tint = OrangeLight, modifier = Modifier.size(23.dp))
+@Composable private fun TopBar(
+    onMenu: () -> Unit, onSearch: () -> Unit, onHistory: () -> Unit,
+    horizontalInset: androidx.compose.ui.unit.Dp
+) {
+    Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = horizontalInset - 4.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onMenu, modifier = Modifier.size(48.dp)) {
+            Icon(Icons.Rounded.Menu, "Меню действий", tint = StrongText, modifier = Modifier.size(24.dp))
         }
-        Spacer(Modifier.width(12.dp))
-        Text("Инвестиции", color = StrongText, fontWeight = FontWeight.Bold,
-            fontSize = 21.sp, modifier = Modifier.weight(1f))
-        val actionShape = RoundedCornerShape(14.dp)
-        Box(Modifier.size(43.dp).clip(actionShape)
-            .background(Brush.verticalGradient(listOf(Color(0x4D6E4935), Color(0x3325232A))), actionShape)
-            .border(1.dp, OrangeLight.copy(alpha = .25f), actionShape),
-            contentAlignment = Alignment.Center) {
-            IconButton(onClick = onAdd, modifier = Modifier.size(43.dp)) {
-                Icon(Icons.Rounded.Add, contentDescription = "Быстрые действия",
-                    tint = OrangeLight, modifier = Modifier.size(25.dp))
-            }
+        Spacer(Modifier.width(8.dp))
+        Text("Инвестиции", color = StrongText, fontWeight = FontWeight.Medium,
+            fontSize = 22.sp, modifier = Modifier.weight(1f))
+        IconButton(onClick = onSearch, modifier = Modifier.size(48.dp)) {
+            Icon(Icons.Rounded.Search, "Найти бумагу", tint = StrongText, modifier = Modifier.size(24.dp))
+        }
+        IconButton(onClick = onHistory, modifier = Modifier.size(48.dp)) {
+            Icon(Icons.Rounded.NotificationsNone, "События портфеля", tint = StrongText, modifier = Modifier.size(24.dp))
         }
     }
 }
 
 @Composable private fun NavigationGlass(selected: Int, onSelect: (Int) -> Unit) {
-    val shape = RoundedCornerShape(23.dp)
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-    Row(
-        Modifier.widthIn(max = GlassSizes.maxNavigationWidth).fillMaxWidth()
-            .padding(start = 12.dp, end = 12.dp, top = 5.dp, bottom = 6.dp)
-            .shadow(14.dp, shape, ambientColor = Color.Black, spotColor = Orange.copy(alpha = .22f))
-            .clip(shape)
-            .background(Brush.verticalGradient(listOf(Color(0xF15A5158), Color(0xF02C2B35), Color(0xFC1C1E26))))
-            .background(Brush.radialGradient(listOf(Color.White.copy(alpha = .09f), Color.Transparent),
-                center = androidx.compose.ui.geometry.Offset.Zero, radius = 500f), shape)
-            .border(1.dp, Brush.linearGradient(listOf(Color(0xCBFFFFFF), Color(0x2FFFFFFF), Orange.copy(alpha = .47f))), shape)
-            .padding(horizontal = 6.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        labels.forEachIndexed { i, title ->
-            val tint by animateColorAsState(if (i == selected) OrangeLight else SoftText, label = "nav-color-$i")
-            Column(
-                Modifier.weight(1f).heightIn(min = 56.dp).clip(RoundedCornerShape(14.dp))
-                    .clickable { onSelect(i) }
-                    .padding(vertical = 2.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                val selectedGlow by animateFloatAsState(if (i == selected) .23f else 0f,
-                    animationSpec = tween(240), label = "nav-glow-$i")
-                Box(
-                    Modifier.size(34.dp).clip(RoundedCornerShape(12.dp))
-                        .background(Orange.copy(alpha = selectedGlow))
-                        .border(1.dp, OrangeLight.copy(alpha = selectedGlow * .7f), RoundedCornerShape(12.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(tabIcons[i], contentDescription = title, tint = tint, modifier = Modifier.size(21.dp))
+    val shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 20.dp, bottomEnd = 20.dp)
+    Box(Modifier.fillMaxWidth().padding(top = 6.dp), contentAlignment = Alignment.Center) {
+        BoxWithConstraints(Modifier.widthIn(max = GlassSizes.maxNavigationWidth).fillMaxWidth()
+            .shadow(12.dp, shape).clip(shape).glassSurface(corner = 24f)) {
+            val cell = maxWidth / 5
+            val indicator by animateDpAsState(cell * selected, tween(180), label = "navigation-position")
+            Box(Modifier.offset { IntOffset(indicator.roundToPx(), 0) }.width(cell).height(68.dp)
+                .background(Brush.radialGradient(listOf(Orange.copy(alpha = .19f), Color.Transparent))))
+            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 9.dp)) {
+                labels.forEachIndexed { index, title ->
+                    val tint by animateColorAsState(if (index == selected) Orange else StrongText,
+                        tween(160), label = "navigation-tint")
+                    Column(Modifier.weight(1f).heightIn(min = 58.dp)
+                        .clip(RoundedCornerShape(15.dp)).glassClick { onSelect(index) }
+                        .padding(vertical = 5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(tabIcons[index], null, tint = tint, modifier = Modifier.size(24.dp))
+                        Spacer(Modifier.height(4.dp))
+                        Text(title, color = tint, fontSize = 10.sp, maxLines = 1)
+                    }
                 }
-                Text(title, color = tint, fontSize = 10.sp, maxLines = 1,
-                    fontWeight = if (i == selected) FontWeight.SemiBold else FontWeight.Normal)
             }
         }
-    }
     }
 }
 
@@ -315,21 +309,20 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
     val summary = state.summary
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = horizontalInset, end = horizontalInset, top = 8.dp, bottom = 18.dp),
+        contentPadding = PaddingValues(start = horizontalInset, end = horizontalInset, top = 18.dp, bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(GlassSizes.sectionGap)
     ) {
         item { PortfolioHero(summary) }
-        item { Spacer(Modifier.height(2.dp)) }
         item {
-            CategoryRow("Акции", Icons.Rounded.TrendingUp, Orange,
+            CategoryRow("Акции", Icons.Rounded.BarChart, Orange,
                 categoryValue(summary, "STOCK"), categoryPerformance(summary, "STOCK"), onCategory)
         }
         item {
-            CategoryRow("Облигации", Icons.Rounded.Layers, Color(0xFFC4A1FF),
+            CategoryRow("Облигации", Icons.Rounded.Layers, Color(0xFFBE86DD),
                 categoryValue(summary, "BOND"), categoryPerformance(summary, "BOND"), onCategory)
         }
         item {
-            CategoryRow("Фонды", Icons.Rounded.PieChart, Color(0xFF76C3FF),
+            CategoryRow("Фонды", Icons.Rounded.PieChart, Color(0xFF25BBEF),
                 categoryValue(summary, "FUND"), categoryPerformance(summary, "FUND"), onCategory)
         }
         item {
@@ -343,6 +336,7 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
         item {
             GlassActionButton("Быстрое действие", onClick = onQuick, modifier = Modifier.fillMaxWidth())
         }
+        item { Spacer(Modifier.height(28.dp)) }
         if (state.securities.isEmpty()) {
             item {
                 EmptyState("Портфель пока пуст", "Добавьте первую бумагу, затем запишите покупку.",
@@ -370,47 +364,40 @@ private fun categoryPerformance(summary: PortfolioMath.Summary, kind: String): S
 }
 
 @Composable private fun PortfolioHero(summary: PortfolioMath.Summary) {
-    GlassCard(Modifier.fillMaxWidth(), elevated = true) {
-        Box(Modifier.fillMaxWidth()) {
-            // Ambient spot behind the total; deliberately not a price chart.
-            Box(Modifier.align(Alignment.CenterEnd).size(128.dp)
-                .background(Brush.radialGradient(listOf(Orange.copy(alpha = .16f),
-                    Orange.copy(alpha = .035f), Color.Transparent)), CircleShape))
-            Column {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Стоимость портфеля", color = SoftText, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                    Icon(Icons.Rounded.ShowChart, contentDescription = "Рыночная стоимость",
-                        tint = OrangeLight, modifier = Modifier.size(21.dp))
-                }
-                Spacer(Modifier.height(5.dp))
-                AnimatedContent(targetState = summary.marketValueMinor, label = "portfolio-total", transitionSpec = {
-                    androidx.compose.animation.fadeIn(tween(240)) togetherWith androidx.compose.animation.fadeOut(tween(130))
-                }) { current ->
-                    Text(MoneyMath.formatMoney(current), color = StrongText,
-                        fontSize = 35.sp, lineHeight = 42.sp, fontWeight = FontWeight.Bold)
-                }
-                Spacer(Modifier.height(7.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(if (summary.unrealizedMinor >= 0) Icons.Rounded.TrendingUp else Icons.Rounded.TrendingDown,
-                        contentDescription = null, tint = if (summary.unrealizedMinor >= 0) Green else Red,
-                        modifier = Modifier.size(17.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text("Открытые позиции: ${signedMoney(summary.unrealizedMinor)}",
-                        color = if (summary.unrealizedMinor >= 0) Green else Red,
-                        fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                }
+    val profit = summary.unrealizedMinor + summary.realizedMinor + summary.dividendsMinor + summary.couponsMinor
+    Box(Modifier.fillMaxWidth().heightIn(min = 160.dp).padding(horizontal = 10.dp)) {
+        Box(Modifier.align(Alignment.BottomEnd).width(145.dp).height(95.dp)
+            .background(Brush.radialGradient(listOf(Orange.copy(alpha = .10f), Color.Transparent)))) {
+            Text("История стоимости\nпока недоступна", color = SoftText.copy(alpha = .68f),
+                fontSize = 10.sp, lineHeight = 14.sp, modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 15.dp))
+        }
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Стоимость портфеля", color = StrongText, fontSize = 15.sp)
+                Spacer(Modifier.width(6.dp))
+                Icon(Icons.Rounded.Info, "Рыночная стоимость по введённым ценам", tint = SoftText, modifier = Modifier.size(15.dp))
             }
+            Spacer(Modifier.height(3.dp))
+            AnimatedContent(targetState = summary.marketValueMinor, label = "portfolio-total", transitionSpec = {
+                (androidx.compose.animation.fadeIn(tween(160)) +
+                    androidx.compose.animation.slideInVertically(tween(180)) { it / 4 }) togetherWith
+                    androidx.compose.animation.fadeOut(tween(100))
+            }) { current ->
+                Text(MoneyMath.formatMoney(current), color = StrongText,
+                    fontSize = 36.sp, lineHeight = 43.sp, fontWeight = FontWeight.SemiBold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(signedMoney(summary.unrealizedMinor),
+                    color = if (summary.unrealizedMinor >= 0L) Green else Red,
+                    fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                Text(" по позициям", color = StrongText, fontSize = 12.sp)
+            }
+            Spacer(Modifier.height(18.dp))
+            Text("Прибыль", color = SoftText, fontSize = 15.sp)
+            Text(signedMoney(profit), color = if (profit >= 0) Green else Red,
+                fontSize = 16.sp, fontWeight = FontWeight.Medium)
         }
-        Spacer(Modifier.height(10.dp))
-        HorizontalDivider(color = Color.White.copy(alpha = .13f))
-        Spacer(Modifier.height(11.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Metric("Результат продаж", signedMoney(summary.realizedMinor), Modifier.weight(1f))
-            Metric("Купоны + дивиденды", MoneyMath.formatMoney(summary.couponsMinor + summary.dividendsMinor), Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(10.dp))
-        Text("Цены бумаг введены вручную. Денежные счета — в «Кошельке».",
-            color = SoftText, fontSize = 11.sp, lineHeight = 15.sp)
     }
 }
 
@@ -427,41 +414,95 @@ private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyM
 @Composable private fun CategoryRow(
     title: String, icon: ImageVector, tint: Color, minor: Long, supporting: String, onClick: () -> Unit
 ) {
-    GlassCard(Modifier.fillMaxWidth().clickable(onClick = onClick), compact = true) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            val shape = RoundedCornerShape(13.dp)
-            Box(
-                Modifier.size(42.dp).clip(shape)
-                    .background(Brush.linearGradient(listOf(tint.copy(alpha = .28f), tint.copy(alpha = .10f))))
-                    .border(1.dp, tint.copy(alpha = .16f), shape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(23.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp,
-                modifier = Modifier.weight(1f), maxLines = 1)
+    GlassCard(Modifier.fillMaxWidth().glassClick(onClick), compact = true) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 42.dp), verticalAlignment = Alignment.CenterVertically) {
+            GlassBadge(icon, tint, Modifier.size(42.dp), glyph = title)
+            Spacer(Modifier.width(13.dp))
+            Text(title, color = StrongText, fontWeight = FontWeight.Medium, fontSize = 16.sp,
+                modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Column(horizontalAlignment = Alignment.End) {
-                Text(MoneyMath.formatMoney(minor), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(MoneyMath.formatMoney(minor), color = StrongText, fontWeight = FontWeight.Medium, fontSize = 16.sp)
                 Text(supporting, color = if (supporting.startsWith("+")) Green
                     else if (supporting.startsWith("−") || supporting.startsWith("-")) Red else SoftText,
-                    fontSize = 11.sp)
+                    fontSize = 14.sp, lineHeight = 19.sp)
             }
             Spacer(Modifier.width(5.dp))
-            Icon(Icons.Rounded.ChevronRight, contentDescription = null,
-                tint = SoftText, modifier = Modifier.size(19.dp))
+            Icon(Icons.Rounded.ChevronRight, null, tint = StrongText, modifier = Modifier.size(18.dp))
+        }
+    }
+}
+
+@Composable private fun GlassBadge(
+    icon: ImageVector, tint: Color, modifier: Modifier = Modifier.size(42.dp), glyph: String? = null
+) {
+    Box(modifier.clip(CircleShape)
+        .background(Brush.radialGradient(listOf(tint.copy(alpha = .42f), tint.copy(alpha = .11f))))
+        .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = .12f), Color.Transparent)))
+        .border(.6.dp, tint.copy(alpha = .16f), CircleShape), contentAlignment = Alignment.Center) {
+        if (glyph == null) Icon(icon, null, tint = tint, modifier = Modifier.size(27.dp))
+        else CategoryGlyph(glyph, tint)
+    }
+}
+
+@Composable private fun CategoryGlyph(kind: String, tint: Color) {
+    Canvas(Modifier.size(28.dp)) {
+        val u = size.width / 28f
+        val stroke = Stroke(1.8f * u, cap = StrokeCap.Round, join = androidx.compose.ui.graphics.StrokeJoin.Round)
+        when (kind) {
+            "Акции" -> listOf(10f, 18f, 26f).forEachIndexed { index, h ->
+                drawRoundRect(tint, Offset((3f + index * 9f) * u, (27f - h) * u),
+                    Size(6f * u, h * u), androidx.compose.ui.geometry.CornerRadius(3f * u))
+            }
+            "Облигации" -> {
+                val top = Path().apply {
+                    moveTo(14*u, 3*u); lineTo(26*u, 9*u); lineTo(14*u, 15*u); lineTo(2*u, 9*u); close()
+                }
+                drawPath(top, tint, style = stroke)
+                listOf(15f, 21f).forEach { y ->
+                    val layer = Path().apply { moveTo(2*u, y*u); lineTo(14*u, (y+6)*u); lineTo(26*u, y*u) }
+                    drawPath(layer, tint, style = stroke)
+                }
+            }
+            "Фонды" -> {
+                drawArc(tint, 0f, 270f, true, Offset(1*u,1*u), Size(26*u,26*u))
+                drawArc(tint.copy(alpha = .58f), -90f, 90f, true, Offset(1*u,1*u), Size(26*u,26*u))
+                drawLine(Color(0xFF174155), Offset(14*u, 1*u), Offset(14*u,14*u), 1.8f*u)
+                drawLine(Color(0xFF174155), Offset(14*u,14*u), Offset(27*u,14*u), 1.8f*u)
+            }
+            "Дивиденды" -> {
+                listOf(15f, 10f, 5f).forEach { y ->
+                    drawOval(tint.copy(alpha = .12f), Offset(4*u,y*u), Size(20*u,9*u))
+                    drawOval(tint, Offset(4*u,y*u), Size(20*u,9*u), style = stroke)
+                }
+                drawLine(tint, Offset(4*u,9*u), Offset(4*u,20*u), 1.8f*u)
+                drawLine(tint, Offset(24*u,9*u), Offset(24*u,20*u), 1.8f*u)
+            }
+            else -> rotate(-22f) {
+                val ticket = Path().apply {
+                    moveTo(5*u,6*u); lineTo(23*u,6*u); quadraticBezierTo(26*u,6*u,26*u,9*u)
+                    lineTo(26*u,11*u); quadraticBezierTo(21*u,14*u,26*u,17*u)
+                    lineTo(26*u,20*u); quadraticBezierTo(26*u,23*u,23*u,23*u)
+                    lineTo(5*u,23*u); quadraticBezierTo(2*u,23*u,2*u,20*u)
+                    lineTo(2*u,17*u); quadraticBezierTo(7*u,14*u,2*u,11*u)
+                    lineTo(2*u,9*u); quadraticBezierTo(2*u,6*u,5*u,6*u); close()
+                }
+                drawPath(ticket, tint, style = stroke)
+            }
         }
     }
 }
 
 @Composable private fun AssetsPage(
-    state: InvestmentsRepository.DashboardState, onAdd: () -> Unit,
+    state: InvestmentsRepository.DashboardState, active: Boolean, onAdd: () -> Unit,
     onSecurity: (String) -> Unit, horizontalInset: androidx.compose.ui.unit.Dp
 ) {
-    var kind by remember { mutableStateOf("ALL") }
+    var kind by rememberSaveable { mutableStateOf("ALL") }
+    var query by rememberSaveable { mutableStateOf("") }
     val filtered = state.summary.positions.filter {
-        if (kind == "ARCHIVE") it.security.archived
+        val matchesKind = if (kind == "ARCHIVE") it.security.archived
         else !it.security.archived && (kind == "ALL" || it.security.kind == kind)
+        matchesKind && (query.isBlank() || it.security.name.contains(query, ignoreCase = true) ||
+            it.security.ticker.contains(query, ignoreCase = true))
     }
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -475,6 +516,11 @@ private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyM
                         tint = OrangeLight, modifier = Modifier.size(26.dp))
                 }
             }
+        }
+        item {
+            OutlinedTextField(query, { query = it }, enabled = active, placeholder = { Text("Название или тикер") },
+                leadingIcon = { Icon(Icons.Rounded.Search, null, tint = SoftText) },
+                singleLine = true, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth())
         }
         item {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -503,8 +549,8 @@ private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyM
 
 @Composable private fun PositionRow(position: PortfolioMath.Position, onClick: () -> Unit) {
     val iconTone = when (position.security.kind) {
-        "BOND" -> Color(0xFFC4A1FF)
-        "FUND" -> Color(0xFF76C3FF)
+        "BOND" -> Color(0xFFBE86DD)
+        "FUND" -> Color(0xFF25BBEF)
         else -> Orange
     }
     GlassCard(Modifier.fillMaxWidth().clickable(onClick = onClick), compact = true) {
@@ -541,7 +587,7 @@ private data class Operation(val id: String, val source: String, val title: Stri
     state: InvestmentsRepository.DashboardState, onDelete: (String, String) -> Unit,
     horizontalInset: androidx.compose.ui.unit.Dp
 ) {
-    var filter by remember { mutableStateOf("ALL") }
+    var filter by rememberSaveable { mutableStateOf("ALL") }
     val tickerMap = state.securities.associateBy { it.id }
     val operations = remember(state.trades, state.income, state.securities) {
         (state.trades.map { trade ->
@@ -641,8 +687,8 @@ private data class Operation(val id: String, val source: String, val title: Stri
                     Spacer(Modifier.width(18.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(11.dp), modifier = Modifier.weight(1f)) {
                         Breakdown("Акции", types[0], Orange)
-                        Breakdown("Облигации", types[1], Color(0xFFC4A1FF))
-                        Breakdown("Фонды", types[2], Color(0xFF76C3FF))
+                        Breakdown("Облигации", types[1], Color(0xFFBE86DD))
+                        Breakdown("Фонды", types[2], Color(0xFF25BBEF))
                     }
                 }
             }
@@ -673,7 +719,7 @@ private data class Operation(val id: String, val source: String, val title: Stri
                     Spacer(Modifier.width(17.dp))
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Breakdown("Дивиденды", summary.dividendsMinor, Orange)
-                        Breakdown("Купоны", summary.couponsMinor, Color(0xFFC4A1FF))
+                        Breakdown("Купоны", summary.couponsMinor, Color(0xFFBE86DD))
                     }
                 }
             }
@@ -694,7 +740,7 @@ private data class Operation(val id: String, val source: String, val title: Stri
 }
 
 @Composable private fun Donut(values: List<Long>, modifier: Modifier) {
-    val palette = listOf(Orange, Color(0xFFC4A1FF), Color(0xFF76C3FF))
+    val palette = listOf(Orange, Color(0xFFBE86DD), Color(0xFF25BBEF))
     val totalMinor = values.sum()
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize().padding(8.dp)) {
