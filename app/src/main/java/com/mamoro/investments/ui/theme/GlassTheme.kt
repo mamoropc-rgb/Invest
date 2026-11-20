@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -62,9 +63,12 @@ private val darkColors = darkColorScheme(
 )
 
 private val type = Typography(
-    titleLarge = TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold),
-    titleMedium = TextStyle(fontSize = 17.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp),
+    bodyLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontSize = 16.sp, lineHeight = 20.sp, letterSpacing = 0.sp),
+    bodySmall = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.sp),
+    labelLarge = TextStyle(fontSize = 14.sp, lineHeight = 18.sp, letterSpacing = 0.sp, fontWeight = FontWeight.Medium),
+    titleLarge = TextStyle(fontSize = 22.sp, lineHeight = 28.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.sp),
+    titleMedium = TextStyle(fontSize = 17.sp, lineHeight = 23.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.sp),
+    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 20.sp, letterSpacing = 0.sp),
     labelMedium = TextStyle(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Medium)
 )
 
@@ -81,9 +85,9 @@ fun Modifier.glassSurface(corner: Float = 21f, warm: Boolean = false): Modifier 
         val r = CornerRadius(corner.dp.toPx())
         val w = size.width
         val h = size.height
-        val base = Brush.linearGradient(
-            listOf(Color(0xD35C5C58), Color(0xE0282B2A), Color(0xEE202322), Color(0xD747423B)),
-            Offset.Zero, Offset(w * .8f, h)
+        val base = Brush.verticalGradient(
+            0f to Color(0xD35C5C58), .38f to Color(0xE0292C2B),
+            .78f to Color(0xEE202322), 1f to Color(0xD747423B)
         )
         val topLight = Brush.radialGradient(
             listOf(Color(0x53FFFFFF), Color(0x0EFFFFFF), Color.Transparent),
@@ -146,7 +150,7 @@ fun Modifier.premiumBackdrop(): Modifier = drawWithCache {
         moveTo(w * .83f, 0f); lineTo(w, 0f); lineTo(w, h * .08f)
         lineTo(0f, h * .67f); lineTo(0f, h * .51f); close()
     }
-    val light = Brush.linearGradient(listOf(Color(0x15FFFFFF), Color(0x02FFFFFF), Color.Transparent),
+    val light = Brush.linearGradient(listOf(Color(0x0DFFFFFF), Color(0x02FFFFFF), Color.Transparent),
         Offset(w, 0f), Offset(w * .15f, h * .6f))
     val bottomGlow = Brush.radialGradient(listOf(Color(0x4C8E481A), Color(0x0D7B421D), Color.Transparent),
         Offset(w * 1.13f, h * .96f), w * .9f)
@@ -179,14 +183,15 @@ fun GlassActionButton(
         modifier.heightIn(min = 56.dp)
             .shadow(14.dp, shape, ambientColor = Orange.copy(alpha = .25f), spotColor = Orange.copy(alpha = .5f))
             .clip(shape)
-            .background(Brush.linearGradient(
-                listOf(Color(0xFFFFCE7C), Color(0xFFFFA42D), Color(0xFFFF8E00), Color(0xFFFFB33A))
+            .background(Brush.verticalGradient(
+                0f to Color(0xFFFFDE93), .22f to Color(0xFFFFAF40),
+                .56f to Color(0xFFFF9100), .84f to Color(0xFFFF9200), 1f to Color(0xFFFFBA30)
             ))
             .drawWithCache {
                 val edge = Brush.verticalGradient(listOf(Color(0xFFFFE4AD), Color(0x35FFFFFF), OrangeLight))
                 onDrawBehind {
                     drawRoundRect(edge, cornerRadius = CornerRadius(21.dp.toPx()), style = Stroke(1.5.dp.toPx()))
-                    drawRoundRect(Brush.radialGradient(listOf(Color(0x65FFFFFF), Color.Transparent),
+                    drawRoundRect(Brush.radialGradient(listOf(Color(0xA0FFFFFF), Color(0x16FFFFFF), Color.Transparent),
                         Offset(size.width * .12f, 0f), size.width * .5f), cornerRadius = CornerRadius(21.dp.toPx()))
                 }
             }
