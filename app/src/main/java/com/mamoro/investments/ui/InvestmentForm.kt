@@ -164,5 +164,5 @@ internal fun InvestmentForm(
 @Composable private fun premiumFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
     focusedTextColor = Color(0xFFF9F7F8), unfocusedTextColor = Color(0xFFF9F7F8),
     focusedBorderColor = OrangeLight, unfocusedBorderColor = Color.White.copy(alpha = .30f),
-    focusedContainerColor = Color(0x882C2B34), unfocusedContainerColor = Color(0x772B2A33)
+    focusedContainerColor = Color(0xAA3B3032), unfocusedContainerColor = Color(0x992A2A35)
 )
