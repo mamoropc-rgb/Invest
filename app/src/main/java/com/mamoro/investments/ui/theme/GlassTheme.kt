@@ -2,8 +2,14 @@ package com.mamoro.investments.ui.theme
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -11,8 +17,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.Typography
+import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -21,7 +33,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** Investments 1.0.2: accessible graphite + amber design tokens. */
+/** Investments 1.0.3: reference-2 premium glass tokens, Android 8.0+ compatible. */
 val Orange = Color(0xFFFF993B)
 val OrangeLight = Color(0xFFFFC082)
 val Green = Color(0xFF81E59B)
@@ -35,11 +47,13 @@ object GlassSizes {
     val phoneSidePadding = 16.dp
     val tabletSidePadding = 24.dp
     val maxContentWidth = 704.dp
+    val maxNavigationWidth = 630.dp
     val cardCorner = 22.dp
     val controlCorner = 15.dp
-    val cardPadding = 15.dp
+    val cardPadding = 16.dp
+    val compactCardPadding = 12.dp
     val sectionGap = 10.dp
-    val navHeight = 78.dp
+    val navHeight = 76.dp
 }
 
 private val darkColors = darkColorScheme(
@@ -90,18 +104,19 @@ fun InvestmentsTheme(content: @Composable () -> Unit) {
 fun GlassCard(
     modifier: Modifier = Modifier,
     elevated: Boolean = false,
+    compact: Boolean = false,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val shape = RoundedCornerShape(GlassSizes.cardCorner)
     val pane = if (elevated) listOf(
-        Color(0xD94A3833), Color(0xE333333D), Color(0xF21A1D26)
+        Color(0xE4543D32), Color(0xE632323A), Color(0xF01A1C26)
     ) else listOf(
-        Color(0xDA42414A), Color(0xE52A2B34), Color(0xF21B1D26)
+        Color(0xDF49474E), Color(0xE52B2B34), Color(0xF01B1D26)
     )
     val rim = if (elevated) listOf(
-        Color(0xB0FFF2E6), Color(0x38FFF2EB), Color(0x99F79C4C)
+        Color(0xC5FFF1E1), Color(0x3AF2E9E8), Color(0x9FFF9A40)
     ) else listOf(
-        Color(0x93FFFFFF), Color(0x25FFFFFF), Color(0x65DD935C)
+        Color(0xB0FFFFFF), Color(0x2CFFFFFF), Color(0x77F4A66F)
     )
     Column(
         modifier = modifier
@@ -113,17 +128,46 @@ fun GlassCard(
             )
             .clip(shape)
             .background(Brush.linearGradient(pane), shape)
+            // Soft upper-left highlight, behind content; no real-time GPU blur.
+            .background(Brush.radialGradient(
+                colors = listOf(Color.White.copy(alpha = if (elevated) .105f else .075f), Color.Transparent),
+                center = Offset.Zero, radius = 570f
+            ), shape)
+            // Thin top reflection; a second wide metallic rim completes the glass edge.
+            .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = .032f), Color.Transparent, Color.Transparent)), shape)
             .border(1.dp, Brush.linearGradient(rim), shape)
-            .padding(GlassSizes.cardPadding),
+            .padding(if (compact) GlassSizes.compactCardPadding else GlassSizes.cardPadding),
         content = content
     )
 }
 
 /** Background glows are ornamental; no simulated market-price time series. */
 val OrangeBackground = Brush.verticalGradient(
-        0.00f to Color(0xFF0B0D12),
-        0.24f to Color(0xFF15131B),
-        0.46f to Color(0xFF261A1B),
-        0.72f to Color(0xFF121118),
-        1.00f to Color(0xFF0B0C10)
+    0.00f to Color(0xFF0B0D12),
+    0.25f to Color(0xFF15131A),
+    0.48f to Color(0xFF2D1C1C),
+    0.72f to Color(0xFF17131A),
+    1.00f to Color(0xFF0A0C11)
 )
+
+/** Reference-2 luminous amber CTA. Reused by portfolio and empty states. */
+@Composable
+fun GlassActionButton(label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(GlassSizes.controlCorner)
+    Row(
+        modifier = modifier
+            .heightIn(min = 52.dp)
+            .shadow(10.dp, shape, spotColor = Orange.copy(alpha = .38f))
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(Color(0xFFFFC17B), Orange, Color(0xFFFA8526))), shape)
+            .border(1.dp, Brush.verticalGradient(listOf(Color(0xFFFFE5BD), Color(0x88FFB76B))), shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 17.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Icon(Icons.Rounded.Add, contentDescription = null, tint = Color(0xFF311A09), modifier = Modifier.size(21.dp))
+        androidx.compose.foundation.layout.Spacer(Modifier.width(8.dp))
+        Text(label, color = Color(0xFF2E190C), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+    }
+}
