@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.activity.compose.BackHandler
 import androidx.compose.ui.geometry.Offset
@@ -31,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -85,7 +87,12 @@ internal fun InvestmentDashboard(
     val focus = LocalFocusManager.current
     LaunchedEffect(pager.currentPage) { focus.clearFocus(force = true) }
     var quickActions by rememberSaveable { mutableStateOf(initiallyShowQuick) }
+    val quickSheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    fun closeQuick(after: () -> Unit = {}) {
+        scope.launch { quickSheet.hide(); quickActions = false; after() }
+    }
     var form by remember { mutableStateOf<FormKind?>(null) }
+    var walletAction by remember { mutableStateOf<String?>(null) }
     var chosenSecurity by remember { mutableStateOf<String?>(null) }
     var selectedDetail by remember { mutableStateOf<String?>(null) }
     var deleteItem by remember { mutableStateOf<Pair<String, String>?>(null) }
@@ -152,38 +159,53 @@ internal fun InvestmentDashboard(
     if (quickActions) {
         ModalBottomSheet(
             onDismissRequest = { quickActions = false },
+            sheetState = quickSheet,
+            sheetMaxWidth = GlassSizes.maxContentWidth,
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            containerColor = Color(0xF123222A),
-            dragHandle = { BottomSheetDefaults.DragHandle(color = OrangeLight.copy(alpha = .72f)) }
+            containerColor = Color.Transparent, tonalElevation = 0.dp,
+            scrimColor = Color.Black.copy(alpha = .58f),
+            dragHandle = null
         ) {
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                Column(
-                    Modifier.widthIn(max = GlassSizes.maxContentWidth).fillMaxWidth()
-                        .padding(start = 18.dp, end = 18.dp, bottom = 30.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Быстрые действия", color = StrongText,
-                                style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                            Text("Операции с бумагами за несколько касаний", color = SoftText, fontSize = 12.sp)
-                        }
-                        IconButton(onClick = { quickActions = false }) {
-                            Icon(Icons.Rounded.Close, contentDescription = "Закрыть меню", tint = StrongText)
-                        }
-                    }
-                    Spacer(Modifier.height(3.dp))
-                    ActionEntry("Купить бумагу", Icons.Rounded.AddCircleOutline) { form = FormKind.BUY; quickActions = false }
-                    ActionEntry("Продать", Icons.Rounded.RemoveCircleOutline) { form = FormKind.SELL; quickActions = false }
-                    ActionEntry("Добавить дивиденд", Icons.Rounded.Payments) { form = FormKind.DIVIDEND; quickActions = false }
-                    ActionEntry("Добавить купон", Icons.Rounded.ConfirmationNumber) { form = FormKind.COUPON; quickActions = false }
-                    ActionEntry("Добавить бумагу", Icons.Rounded.LibraryAdd) { form = FormKind.NEW_SECURITY; quickActions = false }
-                    Text("Пополнение и вывод денежных средств выполняются в «Кошельке».",
-                        color = SoftText, fontSize = 12.sp, lineHeight = 17.sp,
-                        modifier = Modifier.padding(top = 4.dp, start = 4.dp, end = 4.dp))
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
+                .background(Color(0xFA202220)).glassSurface(corner = 28f, warm = true).verticalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, bottom = 68.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(Modifier.fillMaxWidth().height(22.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(width = 54.dp, height = 5.dp).clip(CircleShape)
+                        .background(Brush.verticalGradient(listOf(Color(0xFFCFD0CD), Color(0xFF888B87)))))
                 }
+                Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Быстрые действия", color = StrongText, fontSize = 22.sp,
+                        fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    IconButton(onClick = { closeQuick() }, modifier = Modifier.size(38.dp)
+                        .clip(CircleShape).background(Color.White.copy(alpha = .10f))
+                        .border(.7.dp, Color.White.copy(alpha = .30f), CircleShape)) {
+                        Icon(Icons.Rounded.Close, "Закрыть меню", tint = StrongText, modifier = Modifier.size(24.dp))
+                    }
+                }
+                ActionEntry("Купить бумагу", Icons.Outlined.Add) { closeQuick { form = FormKind.BUY } }
+                ActionEntry("Продать", Icons.Outlined.RemoveCircleOutline) { closeQuick { form = FormKind.SELL } }
+                ActionEntry("Добавить дивиденд", Icons.Outlined.Payments, "Дивиденды") { closeQuick { form = FormKind.DIVIDEND } }
+                ActionEntry("Добавить купон", Icons.Outlined.ConfirmationNumber) { closeQuick { form = FormKind.COUPON } }
+                ActionEntry("Пополнить счёт", Icons.Outlined.AccountBalanceWallet) { closeQuick { walletAction = "Пополнение счёта" } }
+                ActionEntry("Вывести средства", Icons.Outlined.FileUpload) { closeQuick { walletAction = "Вывод средств" } }
             }
         }
+    }
+
+    if (walletAction != null) {
+        AlertDialog(onDismissRequest = { walletAction = null },
+            shape = RoundedCornerShape(GlassSizes.cardCorner), containerColor = Frost,
+            title = { Text(walletAction.orEmpty(), color = StrongText) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Откройте «Кошелёк» и выберите брокерский счёт. Пополнение и вывод выполняются там.", color = SoftText)
+                    if (state?.accounts?.isNotEmpty() == true) {
+                        Text("Счета из Кошелька: " + state.accounts.joinToString { it.name }, color = StrongText)
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { walletAction = null }) { Text("Понятно", color = Orange) } })
     }
 
     if (form != null && state != null) {
@@ -830,19 +852,19 @@ private data class Operation(val id: String, val source: String, val title: Stri
     }
 }
 
-@Composable private fun ActionEntry(title: String, icon: ImageVector, action: () -> Unit) {
-    GlassCard(Modifier.fillMaxWidth().clickable(onClick = action), elevated = true, compact = true) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            val shape = RoundedCornerShape(12.dp)
-            Box(Modifier.size(38.dp).clip(shape)
-                .background(Brush.linearGradient(listOf(Orange.copy(alpha = .31f), Orange.copy(alpha = .10f))))
-                .border(1.dp, Orange.copy(alpha = .13f), shape), contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = OrangeLight, modifier = Modifier.size(21.dp))
-            }
-            Spacer(Modifier.width(12.dp))
-            Text(title, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium, fontSize = 14.sp)
-            Icon(Icons.Rounded.ChevronRight, null, tint = SoftText, modifier = Modifier.size(18.dp))
-        }
+@Composable private fun ActionEntry(
+    title: String, icon: ImageVector, glyph: String? = null, action: () -> Unit
+) {
+    val shape = RoundedCornerShape(18.dp)
+    Row(Modifier.fillMaxWidth().heightIn(min = 50.dp).shadow(5.dp, shape)
+        .clip(shape).glassSurface(corner = 18f, warm = true).glassClick(action)
+        .padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        GlassBadge(icon, Orange, Modifier.size(36.dp), glyph)
+        Spacer(Modifier.width(14.dp))
+        Text(title, color = StrongText, modifier = Modifier.weight(1f), fontWeight = FontWeight.Medium,
+            fontSize = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.width(6.dp))
+        Icon(Icons.Rounded.ChevronRight, null, tint = StrongText, modifier = Modifier.size(20.dp))
     }
 }
 
