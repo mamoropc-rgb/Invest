@@ -178,7 +178,17 @@ internal fun InvestmentDashboard(
             dragHandle = null
         ) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                .background(Color(0xFA202220)).glassSurface(corner = 28f, warm = true).verticalScroll(rememberScrollState())
+                .background(Color(0xFA202220)).glassSurface(corner = 28f, warm = true)
+                .drawWithCache {
+                    val shade = Brush.verticalGradient(0f to Color.Transparent,
+                        .2f to Color(0x30100B08), .85f to Color(0x59100B08), 1f to Color(0x0D100B08))
+                    val reflection = Path().apply {
+                        moveTo(size.width, size.height * .18f); lineTo(size.width, size.height * .39f)
+                        lineTo(0f, size.height * .91f); lineTo(0f, size.height * .72f); close()
+                    }
+                    val light = Brush.linearGradient(listOf(Color(0x0DFFFFFF), Color(0x04FFD6BA), Color.Transparent))
+                    onDrawBehind { drawRect(shade); drawPath(reflection, light) }
+                }.verticalScroll(rememberScrollState())
                 .padding(start = 16.dp, end = 16.dp, bottom = 82.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(Modifier.fillMaxWidth().height(22.dp), contentAlignment = Alignment.Center) {
@@ -490,13 +500,15 @@ private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyM
 }
 
 @Composable private fun GlassBadge(
-    icon: ImageVector, tint: Color, modifier: Modifier = Modifier.size(42.dp), glyph: String? = null
+    icon: ImageVector, tint: Color, modifier: Modifier = Modifier.size(42.dp), glyph: String? = null,
+    vivid: Boolean = false
 ) {
     Box(modifier.clip(CircleShape).background(Color.Black.copy(alpha = .16f))
-        .background(Brush.radialGradient(listOf(tint.copy(alpha = .30f), tint.copy(alpha = .10f))))
+        .background(Brush.radialGradient(listOf(tint.copy(alpha = if (vivid) .48f else .30f),
+            tint.copy(alpha = if (vivid) .19f else .10f))))
         .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = .04f), Color.Transparent)))
         .border(.6.dp, tint.copy(alpha = .16f), CircleShape), contentAlignment = Alignment.Center) {
-        if (glyph == null) Icon(icon, null, tint = tint, modifier = Modifier.size(27.dp))
+        if (glyph == null) Icon(icon, null, tint = tint, modifier = Modifier.size(if (vivid) 30.dp else 27.dp))
         else CategoryGlyph(glyph, tint)
     }
 }
@@ -728,8 +740,8 @@ private data class Operation(
     }
     Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).glassClick(onClick).padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        GlassBadge(icon, tint, Modifier.size(42.dp))
-        Spacer(Modifier.width(12.dp))
+        GlassBadge(icon, tint, Modifier.size(42.dp), vivid = true)
+        Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(op.title, color = StrongText, fontSize = 16.sp, fontWeight = FontWeight.Normal,
                 maxLines = if (largeFont) 2 else 1, overflow = TextOverflow.Ellipsis)
