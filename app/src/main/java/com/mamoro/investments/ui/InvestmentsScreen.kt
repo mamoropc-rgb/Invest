@@ -114,61 +114,46 @@ internal fun InvestmentDashboard(
         snackbar.showSnackbar(value)
         vm.clearMessage()
     }
-// Both 6.55-inch phones and 12.1-inch tablets use the same centered,
-    // constrained design grid. Compose uses dp rather than raw device pixels.
     BoxWithConstraints(Modifier.fillMaxSize().premiumBackdrop()) {
         val isTablet = maxWidth >= 600.dp
-        val maxPane = if (isTablet) GlassSizes.maxContentWidth else maxWidth
+        val paneWidth = if (isTablet) { if (pager.currentPage == 0) 1440.dp else 720.dp } else maxWidth
         val horizontalInset = if (isTablet) GlassSizes.tabletSidePadding else GlassSizes.phoneSidePadding
-        val paneModifier = Modifier.widthIn(max = maxPane).fillMaxWidth()
-        Column(
-            Modifier.fillMaxSize().safeDrawingPadding(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Box(paneModifier) {
-                if (pager.currentPage == 2) HistoryTopBar(onBack = {
-                    scope.launch { pager.animateScrollToPage(0, animationSpec = tween(180)) }
-                }, horizontalInset = horizontalInset)
-                else TopBar(
-                onMenu = { scope.launch { pager.animateScrollToPage(4, animationSpec = tween(180)) } },
-                onSearch = { scope.launch { pager.animateScrollToPage(1, animationSpec = tween(180)) } },
-                onHistory = { scope.launch { pager.animateScrollToPage(2, animationSpec = tween(180)) } },
-                horizontalInset = horizontalInset) }
-            if (state == null) {
-                Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(color = Orange)
+        val paneModifier = Modifier.widthIn(max = paneWidth).fillMaxWidth()
+        Row(Modifier.fillMaxSize().safeDrawingPadding()) {
+            if (isTablet) PreciseNavigationRail(pager.currentPage) { page ->
+                scope.launch { pager.animateScrollToPage(page, animationSpec = tween(180)) }
+            }
+            Column(Modifier.weight(1f).fillMaxHeight(),horizontalAlignment = Alignment.CenterHorizontally) {
+                if (!isTablet || pager.currentPage != 0) Box(paneModifier) {
+                    if (pager.currentPage == 2) HistoryTopBar(onBack = {
+                        scope.launch { pager.animateScrollToPage(0, animationSpec = tween(180)) }
+                    }, horizontalInset = horizontalInset)
+                    else TopBar(onMenu = { scope.launch { pager.animateScrollToPage(4, animationSpec = tween(180)) } },
+                        onSearch = { scope.launch { pager.animateScrollToPage(1, animationSpec = tween(180)) } },
+                        onHistory = { scope.launch { pager.animateScrollToPage(2, animationSpec = tween(180)) } },horizontalInset = horizontalInset)
                 }
-            } else {
-                HorizontalPager(
-                    state = pager,
-                    modifier = Modifier.weight(1f).then(paneModifier),
-                    beyondViewportPageCount = 4
-                ) { page ->
+                if (state == null) Box(Modifier.weight(1f).fillMaxWidth(),contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = Orange)
+                } else HorizontalPager(state = pager, modifier = Modifier.weight(1f).then(paneModifier),beyondViewportPageCount = 4) { page ->
                     when (page) {
-                        0 -> PrecisePhonePortfolio(state, history,
-                            onCategory = { scope.launch { pager.animateScrollToPage(1) } },
-                            onQuick = { quickActions = true },
-                            onAdd = { form = FormKind.NEW_SECURITY },
-                            )
-                        1 -> AssetsPage(state, active = pager.currentPage == 1, onAdd = { form = FormKind.NEW_SECURITY }, onSecurity = { selectedDetail = it }, horizontalInset = horizontalInset)
-                        2 -> OperationsPage(state, onDelete = { kind, id -> deleteItem = kind to id }, horizontalInset = horizontalInset)
-                        3 -> AnalyticsPage(state, horizontalInset = horizontalInset)
-                        else -> SettingsPage(state, horizontalInset = horizontalInset)
+                        0 -> PrecisePortfolioPage(state,history,isTablet,
+                            onCategory = { scope.launch { pager.animateScrollToPage(1, animationSpec = tween(180)) } },
+                            onQuick = { quickActions = true },onAdd = { form = FormKind.NEW_SECURITY },
+                            onSecurity = { selectedDetail = it },
+                            onOperations = { scope.launch { pager.animateScrollToPage(2, animationSpec = tween(180)) } })
+                        1 -> AssetsPage(state,active = pager.currentPage == 1,onAdd = { form = FormKind.NEW_SECURITY },onSecurity = { selectedDetail = it },horizontalInset = horizontalInset)
+                        2 -> OperationsPage(state,onDelete = { kind,id -> deleteItem = kind to id },horizontalInset = horizontalInset)
+                        3 -> AnalyticsPage(state,horizontalInset = horizontalInset)
+                        else -> SettingsPage(state,horizontalInset = horizontalInset)
                     }
                 }
-            }
-            AnimatedVisibility(visible = true,
-                enter = androidx.compose.animation.fadeIn(tween(160)) + androidx.compose.animation.expandVertically(tween(160)),
-                exit = androidx.compose.animation.fadeOut(tween(160)) + androidx.compose.animation.shrinkVertically(tween(160))) {
-              Box(paneModifier) {
-                NavigationGlass(pager.currentPage, onSelect = { page ->
-                    scope.launch { pager.animateScrollToPage(page, animationSpec = tween(200)) }
-                })
-              }
+                if (!isTablet) Box(paneModifier) {
+                    NavigationGlass(pager.currentPage) { page -> scope.launch { pager.animateScrollToPage(page,animationSpec = tween(180)) } }
+                }
             }
         }
-        SnackbarHost(hostState = snackbar,
-            modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding().padding(bottom = 88.dp))
+        SnackbarHost(hostState = snackbar,modifier = Modifier.align(Alignment.BottomCenter).safeDrawingPadding()
+            .padding(bottom = if (isTablet) 24.dp else 88.dp))
     }
 
 
@@ -495,14 +480,7 @@ private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyM
     }
     GlassCard(Modifier.fillMaxWidth().glassClick(onClick), compact = true) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.size(43.dp).clip(RoundedCornerShape(13.dp))
-                    .background(iconTone.copy(alpha = .19f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(position.security.ticker.take(2).uppercase(Locale.ROOT), color = iconTone,
-                    fontWeight = FontWeight.Bold, fontSize = 13.sp)
-            }
+            SecurityMark(position.security.ticker,position.security.kind,Modifier.size(38.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(position.security.name, fontWeight = FontWeight.SemiBold,

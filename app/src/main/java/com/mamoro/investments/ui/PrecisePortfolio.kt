@@ -58,12 +58,12 @@ internal fun dataCategoryValues(summary: PortfolioMath.Summary) = listOf(
 @Composable
 internal fun PrecisePhonePortfolio(
     state: InvestmentsRepository.DashboardState, history: List<PortfolioHistoryPoint>,
-    onCategory: () -> Unit, onQuick: () -> Unit, onAdd: () -> Unit
+    onCategory: () -> Unit, onQuick: () -> Unit, onAdd: () -> Unit,
+    period: String, onPeriod: (String) -> Unit, listState: androidx.compose.foundation.lazy.LazyListState
 ) {
-    var period by rememberSaveable { mutableStateOf("1М") }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 4.dp, end = 4.dp, top = 9.dp, bottom = 22.dp),
+    LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(start = 4.dp, end = 4.dp, top = 9.dp, bottom = 22.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { DataPortfolioHero(state.summary, history, period, { period = it }) }
+        item { DataPortfolioHero(state.summary, history, period, onPeriod) }
         item {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).glassSurface()) {
                 dataCategoryValues(state.summary).forEachIndexed { index, value ->
@@ -121,26 +121,26 @@ internal fun DataPortfolioHero(
     Column(modifier.fillMaxWidth().heightIn(min = if (tablet) 350.dp else 284.dp)
         .clip(RoundedCornerShape(14.dp)).glassSurface().padding(start = if (tablet) 22.dp else 12.dp,
             end = if (tablet) 20.dp else 10.dp, top = if (tablet) 14.dp else 17.dp, bottom = 4.dp)) {
-        Row(Modifier.fillMaxWidth().padding(start = if (tablet) 0.dp else 7.dp), verticalAlignment = Alignment.Top) {
+        Row(Modifier.fillMaxWidth().padding(start = if (tablet) 6.dp else 7.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Text("Стоимость портфеля", color = SoftText, fontSize = 17.sp, lineHeight = 22.sp)
+                Text("Стоимость портфеля", color = SoftText, fontSize = if (tablet) 18.sp else 17.sp, lineHeight = if (tablet) 24.sp else 22.sp)
                 Spacer(Modifier.height(3.dp))
                 AnimatedContent(summary.marketValueMinor, label = "data-portfolio-total") { value ->
-                    Text(MoneyMath.formatMoney(value), color = StrongText, fontSize = if (tablet) 42.sp else 47.sp,
-                        lineHeight = 53.sp, fontWeight = FontWeight.Bold)
+                    Text(MoneyMath.formatMoney(value), color = StrongText, fontSize = if (tablet) 52.sp else 47.sp,
+                        lineHeight = if (tablet) 60.sp else 53.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(dataMoney(change) + if (percent != null) " · $percent" else " по позициям",
-                    color = if (change >= 0) Green else Red, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold)
+                    color = if (change >= 0) Green else Red, fontSize = if (tablet) 22.sp else 20.sp, lineHeight = if (tablet) 28.sp else 26.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(10.dp))
-                Text("Прибыль ${dataMoney(profit)}", color = SoftText, fontSize = 16.sp, lineHeight = 21.sp)
+                Text("Прибыль ${dataMoney(profit)}", color = SoftText, fontSize = if (tablet) 17.sp else 16.sp, lineHeight = if (tablet) 23.sp else 21.sp)
             }
             if (tablet && onQuick != null && !large) {
                 Spacer(Modifier.width(12.dp))
-                GlassActionButton("Быстрое действие", onQuick, Modifier.padding(top = 20.dp))
+                GlassActionButton("Быстрое действие", onQuick, Modifier.width(228.dp).padding(top = 20.dp))
             }
         }
         if (tablet) {
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 DataPeriodSelector(period, onPeriod, Modifier.widthIn(max = 270.dp).fillMaxWidth())
             }
@@ -193,10 +193,11 @@ internal fun DataHistoryChart(points: List<PortfolioHistoryPoint>, modifier: Mod
     val date = remember { DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("ru-RU")) }
     Column(modifier.padding(top = if (axes) 4.dp else 8.dp).semantics { contentDescription = "История стоимости: ${points.size} наблюдений" }) {
         Row(Modifier.weight(1f)) {
-            if (axes) Column(Modifier.width(76.dp).fillMaxHeight().padding(end = 8.dp), verticalArrangement = Arrangement.SpaceBetween,
-                horizontalAlignment = Alignment.End) {
+            if (axes) BoxWithConstraints(Modifier.width(71.dp).fillMaxHeight().padding(end = 11.dp)) {
+                val lineHeight = with(LocalDensity.current) { 16.sp.toDp() }
                 for (i in 4 downTo 0) Text(MoneyMath.formatMoney((low+(high-low)*i/4).roundToLong()).removeSuffix(" ₽"),
-                    color = SoftText, fontSize = 12.sp, lineHeight = 14.sp, maxLines = 1)
+                    color = SoftText, fontSize = 14.sp, lineHeight = 16.sp, maxLines = 1,
+                    modifier = Modifier.align(Alignment.TopEnd).offset(y = maxHeight*(4-i)/4-lineHeight/2))
             }
             Canvas(Modifier.weight(1f).fillMaxHeight().drawWithCache {
                 val first = points.first().time
@@ -226,7 +227,7 @@ internal fun DataHistoryChart(points: List<PortfolioHistoryPoint>, modifier: Mod
                 }
             }) {}
         }
-        if (axes) Row(Modifier.fillMaxWidth().padding(start = 76.dp, top = 6.dp, bottom = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        if (axes) Row(Modifier.fillMaxWidth().padding(start = 71.dp, top = 6.dp, bottom = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             repeat(5) { i ->
                 val item = points[(points.lastIndex*i/4.0).roundToInt()]
                 Text(date.format(Instant.ofEpochMilli(item.time).atZone(ZoneId.systemDefault())).removeSuffix("."),
