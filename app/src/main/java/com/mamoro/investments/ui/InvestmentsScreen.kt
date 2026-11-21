@@ -116,7 +116,7 @@ internal fun InvestmentDashboard(
     }
     BoxWithConstraints(Modifier.fillMaxSize().premiumBackdrop()) {
         val isTablet = maxWidth >= 600.dp
-        val paneWidth = if (isTablet) { if (pager.currentPage == 0) 1440.dp else 720.dp } else maxWidth
+        val paneWidth = if (isTablet) 720.dp else maxWidth
         val horizontalInset = if (isTablet) GlassSizes.tabletSidePadding else GlassSizes.phoneSidePadding
         val paneModifier = Modifier.widthIn(max = paneWidth).fillMaxWidth()
         Row(Modifier.fillMaxSize().safeDrawingPadding()) {
@@ -138,8 +138,12 @@ internal fun InvestmentDashboard(
                 }
                 if (state == null) Box(Modifier.weight(1f).fillMaxWidth(),contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Orange)
-                } else HorizontalPager(state = pager, modifier = Modifier.weight(1f).then(paneModifier),beyondViewportPageCount = 4) { page ->
-                    when (page) {
+                } else HorizontalPager(state = pager, modifier = Modifier.weight(1f).fillMaxWidth(),beyondViewportPageCount = 4) { page ->
+                    // Keep the pager viewport stable while scrolling. Each page limits its own width;
+                    // resizing the viewport at currentPage changes can otherwise overshoot the target.
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                      Box(Modifier.widthIn(max = if (isTablet && page == 0) 1440.dp else paneWidth).fillMaxSize()) {
+                       when (page) {
                         0 -> PrecisePortfolioPage(state,history,isTablet,
                             onCategory = { scope.launch { pager.animateScrollToPage(1, animationSpec = tween(180)) } },
                             onQuick = { quickActions = true },onAdd = { form = FormKind.NEW_SECURITY },
@@ -149,6 +153,8 @@ internal fun InvestmentDashboard(
                         2 -> OperationsPage(state,onDelete = { kind,id -> deleteItem = kind to id },horizontalInset = horizontalInset)
                         3 -> AnalyticsPage(state,horizontalInset = horizontalInset)
                         else -> SettingsPage(state,horizontalInset = horizontalInset)
+                       }
+                      }
                     }
                 }
                 if (!isTablet) Box(paneModifier) {
