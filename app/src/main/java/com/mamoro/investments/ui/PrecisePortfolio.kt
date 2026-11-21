@@ -186,7 +186,7 @@ internal fun DataHistoryChart(points: List<PortfolioHistoryPoint>, modifier: Mod
         }
         return
     }
-    val axisWidth = with(LocalDensity.current) { 71.sp.toDp() }
+    val axisWidth = 71.dp * LocalDensity.current.fontScale
     val minValue = points.minOf { it.valueMinor }.toDouble()
     val maxValue = points.maxOf { it.valueMinor }.toDouble()
     val range = (maxValue-minValue).coerceAtLeast(maxValue*.005).coerceAtLeast(1.0)
