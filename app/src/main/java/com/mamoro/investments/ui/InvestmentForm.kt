@@ -3,6 +3,7 @@
 package com.mamoro.investments.ui
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +20,7 @@ import com.mamoro.investments.ui.theme.SoftText
 import com.mamoro.investments.ui.theme.Orange
 import com.mamoro.investments.ui.theme.OrangeLight
 import com.mamoro.investments.ui.theme.GlassSizes
+import com.mamoro.investments.ui.theme.GlassActionButton
 import androidx.compose.ui.graphics.Color
 
 internal enum class FormKind { NEW_SECURITY, BUY, SELL, DIVIDEND, COUPON, PRICE }
@@ -56,14 +58,12 @@ internal fun InvestmentForm(
         when (kind) {
             FormKind.NEW_SECURITY -> {
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Название") },
-                    placeholder = { Text("ОФЗ 26242") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = premiumFieldColors())
+                    placeholder = { Text("ОФЗ 26242") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = premiumFieldColors())
                 OutlinedTextField(value = ticker, onValueChange = { ticker = it }, label = { Text("Тикер / обозначение") },
-                    placeholder = { Text("SU26242") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = premiumFieldColors())
-                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    placeholder = { Text("SU26242") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = premiumFieldColors())
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     listOf("STOCK" to "Акция", "BOND" to "Облигация", "FUND" to "Фонд").forEach { (value, label) ->
-                        FilterChip(selected = securityKind == value, onClick = { securityKind = value }, label = { Text(label) },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = Orange.copy(alpha = .30f), selectedLabelColor = OrangeLight))
+                        PremiumChip(selected = securityKind == value, title = label, onClick = { securityKind = value })
                     }
                 }
                 AmountField(amount, { amount = it }, "Текущая цена за бумагу, ₽")
@@ -83,13 +83,13 @@ internal fun InvestmentForm(
                             Text("Доступно: ${MoneyMath.formatQuantity(held)} шт.", color = SoftText)
                         }
                         OutlinedTextField(value = quantity, onValueChange = { quantity = it }, label = { Text("Количество, шт.") },
-                            placeholder = { Text("10") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(14.dp), colors = premiumFieldColors())
+                            placeholder = { Text("10") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = premiumFieldColors())
                         AmountField(amount, { amount = it }, "Цена за бумагу, ₽")
                         AmountField(fee, { fee = it }, "Комиссия, ₽")
                     } else {
                         AmountField(amount, { amount = it }, "Сумма выплаты, ₽")
                         OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Примечание (необязательно)") },
-                            modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(14.dp), colors = premiumFieldColors())
+                            modifier = Modifier.fillMaxWidth(), singleLine = true, shape = RoundedCornerShape(18.dp), colors = premiumFieldColors())
                     }
                     if (state.accounts.isNotEmpty()) {
                         SelectionField("Брокерский счёт из Кошелька", state.accounts.map { it.accountId to it.name }, accountId, { accountId = it })
@@ -101,7 +101,8 @@ internal fun InvestmentForm(
             }
         }
         if (error != null) Text(error.orEmpty(), color = MaterialTheme.colorScheme.error)
-        Button(
+        GlassActionButton(
+            label = "Сохранить", icon = Icons.Rounded.Check,
             onClick = {
                 val result = runCatching {
                     when (kind) {
@@ -125,19 +126,15 @@ internal fun InvestmentForm(
                 result.fold(onSuccess = { onClose() }, onFailure = { error = it.message ?: "Проверьте данные" })
             },
             enabled = (kind == FormKind.NEW_SECURITY || kind == FormKind.PRICE || available.isNotEmpty()),
-            modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp)
-        ) {
-            Icon(Icons.Rounded.Check, contentDescription = null)
-            Spacer(Modifier.width(9.dp))
-            Text("Сохранить", fontWeight = FontWeight.Bold)
-        }
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
 @Composable private fun AmountField(value: String, onChange: (String) -> Unit, label: String) {
     OutlinedTextField(value = value, onValueChange = onChange, label = { Text(label) },
         placeholder = { Text("0,00") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp), colors = premiumFieldColors(),
+        shape = RoundedCornerShape(18.dp), colors = premiumFieldColors(),
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
 }
 
@@ -151,7 +148,7 @@ internal fun InvestmentForm(
             onValueChange = {}, readOnly = true, label = { Text(label) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor(),
-            shape = RoundedCornerShape(14.dp), colors = premiumFieldColors()
+            shape = RoundedCornerShape(18.dp), colors = premiumFieldColors()
         )
         ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { (value, text) ->

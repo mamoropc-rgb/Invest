@@ -41,6 +41,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -56,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.mamoro.investments.BuildConfig
 import com.mamoro.investments.data.IncomeEntity
 import com.mamoro.investments.data.InvestmentsRepository
 import com.mamoro.investments.data.SecurityEntity
@@ -305,7 +307,7 @@ internal fun InvestmentDashboard(
 }
 
 /** The visible pill stays compact; its touch target remains at least 48 dp. */
-@Composable private fun PremiumChip(selected: Boolean, title: String, onClick: () -> Unit) {
+@Composable internal fun PremiumChip(selected: Boolean, title: String, onClick: () -> Unit) {
     val progress by animateFloatAsState(if (selected) 1f else 0f, tween(160), label = "filter-highlight")
     val shape = RoundedCornerShape(18.dp)
     Box(Modifier.heightIn(min = 48.dp).glassClick(onClick), contentAlignment = Alignment.Center) {
@@ -337,7 +339,7 @@ internal fun InvestmentDashboard(
     val summary = state.summary
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = horizontalInset, end = horizontalInset, top = 18.dp, bottom = 18.dp),
+        contentPadding = PaddingValues(start = horizontalInset, end = horizontalInset, top = 10.dp, bottom = 18.dp),
         verticalArrangement = Arrangement.spacedBy(GlassSizes.sectionGap)
     ) {
         item { PortfolioHero(summary) }
@@ -358,7 +360,7 @@ internal fun InvestmentDashboard(
                 if (summary.dividendsMinor != 0L) "Получено" else "Нет выплат", onCategory)
         }
         item {
-            CategoryRow("Купоны", Icons.Rounded.ConfirmationNumber, OrangeLight, summary.couponsMinor,
+            CategoryRow("Купоны", Icons.Rounded.ConfirmationNumber, Orange, summary.couponsMinor,
                 if (summary.couponsMinor != 0L) "Получено" else "Нет выплат", onCategory)
         }
         item {
@@ -393,7 +395,7 @@ private fun categoryPerformance(summary: PortfolioMath.Summary, kind: String): S
 
 @Composable private fun PortfolioHero(summary: PortfolioMath.Summary) {
     val profit = summary.unrealizedMinor + summary.realizedMinor + summary.dividendsMinor + summary.couponsMinor
-    Box(Modifier.fillMaxWidth().heightIn(min = 160.dp).padding(horizontal = 10.dp)) {
+    Box(Modifier.fillMaxWidth().heightIn(min = 160.dp).padding(horizontal = 12.dp)) {
         Box(Modifier.align(Alignment.BottomEnd).width(145.dp).height(95.dp)
             .background(Brush.radialGradient(listOf(Orange.copy(alpha = .10f), Color.Transparent)))) {
             Text("История стоимости\nпока недоступна", color = SoftText.copy(alpha = .68f),
@@ -442,30 +444,48 @@ private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyM
 @Composable private fun CategoryRow(
     title: String, icon: ImageVector, tint: Color, minor: Long, supporting: String, onClick: () -> Unit
 ) {
-    GlassCard(Modifier.fillMaxWidth().glassClick(onClick), compact = true) {
-        Row(Modifier.fillMaxWidth().heightIn(min = 42.dp), verticalAlignment = Alignment.CenterVertically) {
-            GlassBadge(icon, tint, Modifier.size(42.dp), glyph = title)
-            Spacer(Modifier.width(13.dp))
-            Text(title, color = StrongText, fontWeight = FontWeight.Medium, fontSize = 16.sp,
-                modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Column(horizontalAlignment = Alignment.End) {
-                Text(MoneyMath.formatMoney(minor), color = StrongText, fontWeight = FontWeight.Medium, fontSize = 16.sp)
+    val shape = RoundedCornerShape(21.dp)
+    val largeFont = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.2f
+    Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).shadow(5.dp, shape)
+        .clip(shape).glassSurface().glassClick(onClick)
+        .drawWithCache {
+            val localGlow = Brush.radialGradient(listOf(tint.copy(alpha = .10f), Color.Transparent),
+                center = Offset(40.dp.toPx(), 32.dp.toPx()), radius = 100.dp.toPx())
+            onDrawBehind { drawRect(localGlow) }
+        }
+        .padding(start = 18.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        GlassBadge(icon, tint, Modifier.size(44.dp), glyph = title)
+        Spacer(Modifier.width(18.dp))
+        if (largeFont) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(title, color = StrongText, fontSize = 16.sp, maxLines = 2)
+                Text(MoneyMath.formatMoney(minor), color = StrongText, fontSize = 16.sp, fontWeight = FontWeight.Medium)
                 Text(supporting, color = if (supporting.startsWith("+")) Green
                     else if (supporting.startsWith("−") || supporting.startsWith("-")) Red else SoftText,
-                    fontSize = 14.sp, lineHeight = 19.sp)
+                    fontSize = 14.sp)
             }
-            Spacer(Modifier.width(5.dp))
-            Icon(Icons.Rounded.ChevronRight, null, tint = StrongText, modifier = Modifier.size(18.dp))
+        } else {
+        Text(title, color = StrongText, fontWeight = FontWeight.Medium, fontSize = 16.sp,
+            modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Column(horizontalAlignment = Alignment.End) {
+            Text(MoneyMath.formatMoney(minor), color = StrongText, fontWeight = FontWeight.Medium, fontSize = 16.sp)
+            Text(supporting, color = if (supporting.startsWith("+")) Green
+                else if (supporting.startsWith("−") || supporting.startsWith("-")) Red else SoftText,
+                fontSize = 14.sp, lineHeight = 19.sp)
         }
+        }
+        Spacer(Modifier.width(5.dp))
+        Icon(Icons.Rounded.ChevronRight, null, tint = StrongText, modifier = Modifier.size(18.dp))
     }
 }
 
 @Composable private fun GlassBadge(
     icon: ImageVector, tint: Color, modifier: Modifier = Modifier.size(42.dp), glyph: String? = null
 ) {
-    Box(modifier.clip(CircleShape)
-        .background(Brush.radialGradient(listOf(tint.copy(alpha = .42f), tint.copy(alpha = .11f))))
-        .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = .12f), Color.Transparent)))
+    Box(modifier.clip(CircleShape).background(Color.Black.copy(alpha = .16f))
+        .background(Brush.radialGradient(listOf(tint.copy(alpha = .30f), tint.copy(alpha = .10f))))
+        .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = .04f), Color.Transparent)))
         .border(.6.dp, tint.copy(alpha = .16f), CircleShape), contentAlignment = Alignment.Center) {
         if (glyph == null) Icon(icon, null, tint = tint, modifier = Modifier.size(27.dp))
         else CategoryGlyph(glyph, tint)
@@ -877,7 +897,7 @@ private data class Operation(
                     color = SoftText, fontSize = 12.sp, lineHeight = 18.sp)
             }
         }
-        item { Text("Инвестиции 1.0.3 · Android 8.0+", color = SoftText, fontSize = 12.sp,
+        item { Text("Инвестиции ${BuildConfig.VERSION_NAME} · Android 8.0+", color = SoftText, fontSize = 12.sp,
             modifier = Modifier.padding(top = 8.dp)) }
     }
 }
@@ -939,10 +959,10 @@ private data class Operation(
             Metric("Нереализованный результат", signedMoney(holding.unrealizedMinor))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = { onTrade(FormKind.BUY) }, modifier = Modifier.weight(1f)) { Text("Купить") }
-            OutlinedButton(onClick = { onTrade(FormKind.SELL) }, modifier = Modifier.weight(1f)) { Text("Продать") }
+            GlassActionButton("Купить", { onTrade(FormKind.BUY) }, Modifier.weight(1f))
+            GlassActionButton("Продать", { onTrade(FormKind.SELL) }, Modifier.weight(1f), icon = Icons.Outlined.Remove)
         }
-        OutlinedButton(onClick = onPrice, modifier = Modifier.fillMaxWidth()) { Icon(Icons.Rounded.Edit, null); Spacer(Modifier.width(7.dp)); Text("Изменить цену") }
+        ActionEntry("Изменить цену", Icons.Outlined.Edit, action = onPrice)
         TextButton(onClick = onArchive, modifier = Modifier.fillMaxWidth()) { Text(if (asset.archived) "Вернуть из архива" else "Архивировать бумагу") }
     }
 }
