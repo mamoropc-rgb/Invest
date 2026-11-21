@@ -56,7 +56,8 @@ import java.util.Locale
 }
 
 @Composable internal fun PreciseNavigationRail(selectedPage: Int, onSelect: (Int) -> Unit) {
-    Column(Modifier.width(176.dp).fillMaxHeight().background(Color(0xFF080F13)).testTag("tablet-navigation")
+    val railWidth = if (LocalDensity.current.fontScale > 1.2f) 264.dp else 176.dp
+    Column(Modifier.width(railWidth).fillMaxHeight().background(Color(0xFF080F13)).testTag("tablet-navigation")
         .drawWithCache {
             onDrawBehind { drawLine(DataRule.copy(alpha = .55f), Offset(size.width,0f), Offset(size.width,size.height), .7.dp.toPx()) }
         }.verticalScroll(rememberScrollState()).padding(top = 24.dp)) {
@@ -127,8 +128,8 @@ import java.util.Locale
         val tableScroll = rememberScrollState()
         Column(Modifier.fillMaxWidth().then(if (scrollable) Modifier.verticalScroll(tableScroll) else Modifier)) {
             Row(Modifier.fillMaxWidth().heightIn(min = 40.dp).glassClick(onAll).padding(start = 20.dp, end = 48.dp, top = 8.dp, bottom = 8.dp)) {
-                Text("Актив", Modifier.weight(.5f), fontSize = 16.sp, color = StrongText)
-                Text("Стоимость", Modifier.weight(.22f), fontSize = 16.sp, color = StrongText)
+                Text(if (large) "Актив · стоимость" else "Актив", Modifier.weight(.5f), fontSize = 16.sp, color = StrongText)
+                if (!large) Text("Стоимость", Modifier.weight(.22f), fontSize = 16.sp, color = StrongText)
                 Text("Доходность", Modifier.weight(.28f), fontSize = 16.sp, color = StrongText, textAlign = androidx.compose.ui.text.style.TextAlign.End)
             }
             HorizontalDivider(thickness = .7.dp, color = DataRule)

@@ -186,6 +186,7 @@ internal fun DataHistoryChart(points: List<PortfolioHistoryPoint>, modifier: Mod
         }
         return
     }
+    val axisWidth = with(LocalDensity.current) { 71.sp.toDp() }
     val minValue = points.minOf { it.valueMinor }.toDouble()
     val maxValue = points.maxOf { it.valueMinor }.toDouble()
     val range = (maxValue-minValue).coerceAtLeast(maxValue*.005).coerceAtLeast(1.0)
@@ -196,7 +197,7 @@ internal fun DataHistoryChart(points: List<PortfolioHistoryPoint>, modifier: Mod
     val date = remember { DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("ru-RU")) }
     Column(modifier.padding(top = if (axes) 4.dp else 8.dp).semantics { contentDescription = "История стоимости: ${points.size} наблюдений" }) {
         Row(Modifier.weight(1f)) {
-            if (axes) BoxWithConstraints(Modifier.width(71.dp).fillMaxHeight().padding(end = 11.dp)) {
+            if (axes) BoxWithConstraints(Modifier.width(axisWidth).fillMaxHeight().padding(end = 11.dp)) {
                 val lineHeight = with(LocalDensity.current) { 16.sp.toDp() }
                 for (i in 4 downTo 0) Text(MoneyMath.formatMoney((low+(high-low)*i/4).roundToLong()).removeSuffix(" ₽"),
                     color = SoftText, fontSize = 14.sp, lineHeight = 16.sp, maxLines = 1,
@@ -230,7 +231,7 @@ internal fun DataHistoryChart(points: List<PortfolioHistoryPoint>, modifier: Mod
                 }
             }) {}
         }
-        if (axes) Row(Modifier.fillMaxWidth().padding(start = 71.dp, top = 6.dp, bottom = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        if (axes) Row(Modifier.fillMaxWidth().padding(start = axisWidth, top = 6.dp, bottom = 10.dp), horizontalArrangement = Arrangement.SpaceBetween) {
             repeat(5) { i ->
                 val item = points[(points.lastIndex*i/4.0).roundToInt()]
                 Text(date.format(Instant.ofEpochMilli(item.time).atZone(ZoneId.systemDefault())).removeSuffix("."),
