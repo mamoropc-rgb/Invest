@@ -304,6 +304,12 @@ internal fun InvestmentDashboard(
                 labels.forEachIndexed { index, title ->
                     val tint by animateColorAsState(if (index == selected) Orange else StrongText,
                         tween(160), label = "navigation-tint")
+                    val caption = if (largeFont) when (title) {
+                        "Портфель" -> "Порт\u00adфель"
+                        "Операции" -> "Опера\u00adции"
+                        "Аналитика" -> "Анали\u00adтика"
+                        else -> title
+                    } else title
                     Column(Modifier.weight(1f).heightIn(min = if (largeFont) 76.dp else 58.dp)
                         .clip(RoundedCornerShape(15.dp)).glassClick { onSelect(index) }
                         .padding(top = if (largeFont) 5.dp else 1.dp, bottom = if (largeFont) 5.dp else 9.dp),
@@ -313,7 +319,8 @@ internal fun InvestmentDashboard(
                             else Icon(tabIcons[index], null, tint = tint, modifier = Modifier.size(24.dp))
                         }
                         Spacer(Modifier.height(2.dp))
-                        Text(title, color = tint, fontSize = 10.sp, lineHeight = 12.sp,
+                        Text(caption, color = tint, fontSize = 10.sp, lineHeight = 12.sp,
+                            modifier = Modifier.padding(horizontal = if (largeFont) 4.dp else 0.dp),
                             maxLines = if (largeFont) 2 else 1,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             overflow = TextOverflow.Ellipsis)
@@ -617,12 +624,13 @@ private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyM
 }
 
 @Composable private fun PositionRow(position: PortfolioMath.Position, onClick: () -> Unit) {
+    val largeFont = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.2f
     val iconTone = when (position.security.kind) {
         "BOND" -> Color(0xFFBE86DD)
         "FUND" -> Color(0xFF25BBEF)
         else -> Orange
     }
-    GlassCard(Modifier.fillMaxWidth().clickable(onClick = onClick), compact = true) {
+    GlassCard(Modifier.fillMaxWidth().glassClick(onClick), compact = true) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier.size(43.dp).clip(RoundedCornerShape(13.dp))
@@ -635,14 +643,23 @@ private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyM
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(position.security.name, fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    fontSize = 14.sp, maxLines = if (largeFont) 2 else 1, overflow = TextOverflow.Ellipsis)
                 Text("${position.security.ticker} · ${MoneyMath.formatQuantity(position.quantityMicros)} шт.",
                     fontSize = 11.sp, color = SoftText)
+                if (largeFont) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(MoneyMath.formatMoney(position.currentValueMinor), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(signedMoney(position.unrealizedMinor), fontSize = 12.sp,
+                        color = if (position.unrealizedMinor >= 0L) Green else Red)
+                }
             }
-            Column(horizontalAlignment = Alignment.End) {
+            if (!largeFont) {
+              Spacer(Modifier.width(8.dp))
+              Column(horizontalAlignment = Alignment.End) {
                 Text(MoneyMath.formatMoney(position.currentValueMinor), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                 Text(signedMoney(position.unrealizedMinor), fontSize = 12.sp,
                     color = if (position.unrealizedMinor >= 0L) Green else Red)
+              }
             }
             Spacer(Modifier.width(4.dp))
             Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = SoftText, modifier = Modifier.size(17.dp))
