@@ -12,11 +12,13 @@ adb shell am broadcast -a com.android.systemui.demo --es command clock --es hhmm
 adb shell am broadcast -a com.android.systemui.demo --es command battery --es level 100 --es plugged false
 adb shell cmd overlay enable com.android.internal.systemui.navbar.gestural || true
 adb shell settings put system font_scale 1.0
+adb shell wm user-rotation lock 0
 adb shell wm size 1080x2400
 adb shell wm density 480
 
 snapshot() {
     local capture_mode="$1" capture_name="$2" capture_text="$3"
+    local capture_width="${4:-1080}" capture_height="${5:-2400}"
     # The image's Pixel Launcher can show an ANR while display density changes.
     # It is unrelated to this app and is not needed for explicit activity launches.
     adb shell am force-stop com.google.android.apps.nexuslauncher || true
@@ -48,6 +50,17 @@ assert sys.argv[2] in labels, 'Expected screen not visible: '+sys.argv[2]
 print('Visible screen verified: '+sys.argv[2])
 PYFINAL
     test -s "$capture_dir/$capture_name.png"
+    python3 - "$capture_dir/$capture_name.png" "$capture_width" "$capture_height" <<'PYSIZE'
+from pathlib import Path
+import struct
+import sys
+png = Path(sys.argv[1]).read_bytes()
+assert png[:8] == b'\x89PNG\r\n\x1a\n'
+actual = struct.unpack('>II', png[16:24])
+expected = (int(sys.argv[2]), int(sys.argv[3]))
+assert actual == expected, f'Unexpected screenshot size: {actual}, expected {expected}'
+print('Screenshot dimensions verified:', actual)
+PYSIZE
 }
 
 snapshot portfolio portfolio 'Стоимость портфеля'
@@ -58,11 +71,14 @@ snapshot assets assets 'Мои бумаги'
 snapshot analytics analytics 'Структура портфеля'
 snapshot more more 'Связь с Кошельком'
 
-adb shell wm size 2560x1600
-adb shell wm density 240
-snapshot portfolio tablet-landscape 'Стоимость портфеля'
+# Android 11 caps each forced dimension at twice the AVD's natural dimension.
+# Set a portrait canvas first, then rotate it to obtain an actual 2560x1600 frame.
 adb shell wm size 1600x2560
-snapshot portfolio tablet-portrait 'Стоимость портфеля'
+adb shell wm density 240
+adb shell wm user-rotation lock 1
+snapshot portfolio tablet-landscape 'Стоимость портфеля' 2560 1600
+adb shell wm user-rotation lock 0
+snapshot portfolio tablet-portrait 'Стоимость портфеля' 1600 2560
 
 adb shell wm size 1080x2400
 adb shell wm density 480
