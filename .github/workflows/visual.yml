@@ -1,4 +1,4 @@
-name: Premium Glass - device screenshots
+name: Precise Data - device screenshots
 on:
   push:
     branches: [main, master]
@@ -52,6 +52,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Premium-Glass-${{ matrix.device }}-screenshots
+          name: Precise-Data-${{ matrix.device }}-screenshots
           path: build/outputs/premium-glass
           if-no-files-found: error
