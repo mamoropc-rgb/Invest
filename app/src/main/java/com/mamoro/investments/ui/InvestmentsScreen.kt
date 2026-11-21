@@ -87,7 +87,8 @@ fun InvestmentsScreen(vm: InvestmentsViewModel) {
 @Composable
 internal fun InvestmentDashboard(
     vm: InvestmentsViewModel, state: InvestmentsRepository.DashboardState?,
-    initialPage: Int = 0, initiallyShowQuick: Boolean = false
+    initialPage: Int = 0, initiallyShowQuick: Boolean = false,
+    history: List<PortfolioHistoryPoint> = emptyList()
 ) {
     val pager = rememberPagerState(initialPage = initialPage, pageCount = { 5 })
     val scope = rememberCoroutineScope()
@@ -144,11 +145,11 @@ internal fun InvestmentDashboard(
                     beyondViewportPageCount = 4
                 ) { page ->
                     when (page) {
-                        0 -> PortfolioPage(state,
+                        0 -> PrecisePhonePortfolio(state, history,
                             onCategory = { scope.launch { pager.animateScrollToPage(1) } },
                             onQuick = { quickActions = true },
                             onAdd = { form = FormKind.NEW_SECURITY },
-                            onSecurity = { selectedDetail = it }, horizontalInset = horizontalInset)
+                            )
                         1 -> AssetsPage(state, active = pager.currentPage == 1, onAdd = { form = FormKind.NEW_SECURITY }, onSecurity = { selectedDetail = it }, horizontalInset = horizontalInset)
                         2 -> OperationsPage(state, onDelete = { kind, id -> deleteItem = kind to id }, horizontalInset = horizontalInset)
                         3 -> AnalyticsPage(state, horizontalInset = horizontalInset)
@@ -156,7 +157,7 @@ internal fun InvestmentDashboard(
                     }
                 }
             }
-            AnimatedVisibility(visible = pager.currentPage != 2,
+            AnimatedVisibility(visible = true,
                 enter = androidx.compose.animation.fadeIn(tween(160)) + androidx.compose.animation.expandVertically(tween(160)),
                 exit = androidx.compose.animation.fadeOut(tween(160)) + androidx.compose.animation.shrinkVertically(tween(160))) {
               Box(paneModifier) {
@@ -176,25 +177,15 @@ internal fun InvestmentDashboard(
             onDismissRequest = { quickActions = false },
             sheetState = quickSheet,
             sheetMaxWidth = GlassSizes.maxContentWidth,
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
             containerColor = Color.Transparent, contentColor = StrongText, tonalElevation = 0.dp,
             scrimColor = Color.Black.copy(alpha = .58f),
             dragHandle = null
         ) {
             LightSheetSystemBars()
-            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-                .background(Color(0xFA202220)).glassSurface(corner = 28f, warm = true)
-                .drawWithCache {
-                    val shade = Brush.verticalGradient(0f to Color.Transparent,
-                        .2f to Color(0x30100B08), .85f to Color(0x59100B08), 1f to Color(0x0D100B08))
-                    val reflection = Path().apply {
-                        moveTo(size.width, size.height * .18f); lineTo(size.width, size.height * .39f)
-                        lineTo(0f, size.height * .91f); lineTo(0f, size.height * .72f); close()
-                    }
-                    val light = Brush.linearGradient(listOf(Color(0x0DFFFFFF), Color(0x04FFD6BA), Color.Transparent))
-                    onDrawBehind { drawRect(shade); drawPath(reflection, light) }
-                }.verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, end = 16.dp, bottom = 82.dp),
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                .background(Frost).glassSurface(corner = 14f).verticalScroll(rememberScrollState())
+                .padding(start = 18.dp, end = 18.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(Modifier.fillMaxWidth().height(22.dp), contentAlignment = Alignment.Center) {
                     Box(Modifier.offset(y = 8.dp).size(width = 54.dp, height = 5.dp).clip(CircleShape)
@@ -236,7 +227,7 @@ internal fun InvestmentDashboard(
 
     if (form != null && state != null) {
         ModalBottomSheet(onDismissRequest = { form = null; chosenSecurity = null },
-            containerColor = Color(0xFA202322), contentColor = StrongText) {
+            containerColor = Frost, contentColor = StrongText) {
             LightSheetSystemBars()
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 InvestmentForm(form!!, state, chosenSecurity, onClose = { form = null; chosenSecurity = null }, vm = vm)
@@ -248,7 +239,7 @@ internal fun InvestmentDashboard(
         val item = state.securities.firstOrNull { it.id == selectedDetail }
         if (item != null) {
             ModalBottomSheet(onDismissRequest = { selectedDetail = null },
-                containerColor = Color(0xFF202322), contentColor = StrongText) {
+                containerColor = Frost, contentColor = StrongText) {
                 LightSheetSystemBars()
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 AssetDetail(item, state, onTrade = { type ->
@@ -294,76 +285,52 @@ internal fun InvestmentDashboard(
     onMenu: () -> Unit, onSearch: () -> Unit, onHistory: () -> Unit,
     horizontalInset: androidx.compose.ui.unit.Dp
 ) {
-    Row(Modifier.fillMaxWidth().height(56.dp).padding(horizontal = horizontalInset - 4.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onMenu, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.Rounded.Menu, "Меню действий", tint = StrongText, modifier = Modifier.size(24.dp))
-        }
-        Spacer(Modifier.width(20.dp))
-        Text("Инвестиции", color = StrongText, fontWeight = FontWeight.Medium,
-            fontSize = 20.sp, modifier = Modifier.weight(1f).offset(y = 2.dp))
-        IconButton(onClick = onSearch, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.Rounded.Search, "Найти бумагу", tint = StrongText, modifier = Modifier.size(24.dp))
-        }
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = horizontalInset), verticalAlignment = Alignment.CenterVertically) {
+        Text("Инвестиции", color = StrongText, fontSize = 30.sp, lineHeight = 36.sp,
+            fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).offset(y = 7.dp))
         IconButton(onClick = onHistory, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.Rounded.NotificationsNone, "События портфеля", tint = StrongText, modifier = Modifier.size(24.dp))
+            Icon(Icons.Outlined.NotificationsNone, "События портфеля", tint = StrongText, modifier = Modifier.size(24.dp))
+        }
+        IconButton(onClick = onMenu, modifier = Modifier.size(48.dp)) {
+            Icon(Icons.Outlined.PersonOutline, "Профиль", tint = StrongText, modifier = Modifier.size(24.dp))
         }
     }
 }
 
 @Composable private fun NavigationGlass(selected: Int, onSelect: (Int) -> Unit) {
-    val shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 20.dp, bottomEnd = 20.dp)
-    val largeFont = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.2f
-    Box(Modifier.fillMaxWidth().padding(top = 6.dp), contentAlignment = Alignment.Center) {
-        BoxWithConstraints(Modifier.widthIn(max = GlassSizes.maxNavigationWidth).fillMaxWidth()
-            .shadow(12.dp, shape).clip(shape).glassSurface(corner = 24f)) {
-            val cell = maxWidth / 5
-            val indicator by animateDpAsState(cell * selected, tween(180), label = "navigation-position")
-            Box(Modifier.offset { IntOffset(indicator.roundToPx(), 0) }.width(cell).height(68.dp)
-                .background(Brush.radialGradient(listOf(Orange.copy(alpha = .19f), Color.Transparent))))
-            Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 9.dp, bottom = 20.dp)) {
-                labels.forEachIndexed { index, title ->
-                    val tint by animateColorAsState(if (index == selected) Orange else StrongText,
-                        tween(160), label = "navigation-tint")
-                    val caption = if (largeFont) when (title) {
-                        "Портфель" -> "Порт-\nфель"
-                        "Операции" -> "Опера-\nции"
-                        "Аналитика" -> "Анали-\nтика"
-                        else -> title
-                    } else title
-                    Column(Modifier.weight(1f).heightIn(min = if (largeFont) 76.dp else 58.dp)
-                        .clip(RoundedCornerShape(15.dp)).glassClick { onSelect(index) }
-                        .padding(top = if (largeFont) 5.dp else 1.dp, bottom = if (largeFont) 5.dp else 9.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
-                            if (index == 0) CategoryGlyph("Акции", tint)
-                            else Icon(tabIcons[index], null, tint = tint, modifier = Modifier.size(24.dp))
-                        }
-                        Spacer(Modifier.height(2.dp))
-                        Text(caption, color = tint, fontSize = 10.sp, lineHeight = 12.sp,
-                            modifier = Modifier.padding(horizontal = if (largeFont) 4.dp else 0.dp)
-                                .then(if (largeFont) Modifier.clearAndSetSemantics { contentDescription = title } else Modifier),
-                            maxLines = if (largeFont) 2 else 1,
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                            overflow = TextOverflow.Ellipsis)
-                    }
+    val large = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.2f
+    Column(Modifier.fillMaxWidth().background(Ink)) {
+        HorizontalDivider(thickness = .8.dp, color = DataRule)
+        Row(Modifier.fillMaxWidth().heightIn(min = if (large) 78.dp else 56.dp)) {
+            labels.forEachIndexed { index, title ->
+                val color by animateColorAsState(if (index == selected) Orange else SoftText, tween(150), label = "data-navigation")
+                val caption = if (large) when (title) {
+                    "Портфель" -> "Порт-\nфель"
+                    "Операции" -> "Опера-\nции"
+                    "Аналитика" -> "Анали-\nтика"
+                    else -> title
+                } else title
+                Column(Modifier.weight(1f).heightIn(min = if (large) 78.dp else 56.dp).glassClick { onSelect(index) }
+                    .padding(top = 7.dp, bottom = 5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    DataGlyph(title, Modifier.size(25.dp), color)
+                    Spacer(Modifier.height(3.dp))
+                    Text(caption, fontSize = 10.sp, lineHeight = 12.sp, color = color,
+                        maxLines = if (large) 2 else 1, textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                        modifier = Modifier.then(if (large) Modifier.clearAndSetSemantics { contentDescription = title } else Modifier))
                 }
             }
         }
     }
 }
 
-/** The visible pill stays compact; its touch target remains at least 48 dp. */
 @Composable internal fun PremiumChip(selected: Boolean, title: String, onClick: () -> Unit) {
-    val progress by animateFloatAsState(if (selected) 1f else 0f, tween(160), label = "filter-highlight")
-    val shape = RoundedCornerShape(18.dp)
+    val fill by animateColorAsState(if (selected) Orange else Frost, tween(150), label = "data-filter")
     Box(Modifier.heightIn(min = 48.dp).glassClick(onClick), contentAlignment = Alignment.Center) {
-        Box(Modifier.heightIn(min = 34.dp).clip(shape).glassSurface(corner = 18f)
-            .background(Brush.verticalGradient(listOf(OrangeLight.copy(alpha = progress), Orange.copy(alpha = progress))))
-            .border(.8.dp, Brush.verticalGradient(listOf(Color.White.copy(alpha = .56f), OrangeLight.copy(alpha = .20f))), shape)
-            .padding(horizontal = 16.dp, vertical = 7.dp)) {
-            Text(title, color = androidx.compose.ui.graphics.lerp(StrongText, Color(0xFF201400), progress),
-                fontSize = 12.sp, lineHeight = 18.sp, fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal)
+        Box(Modifier.heightIn(min = 32.dp).clip(RoundedCornerShape(8.dp)).background(fill)
+            .border(.8.dp, if (selected) Orange else DataRule, RoundedCornerShape(8.dp))
+            .padding(horizontal = 16.dp, vertical = 6.dp)) {
+            Text(title, color = if (selected) Ink else SoftText, fontSize = 13.sp, lineHeight = 18.sp,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
         }
     }
 }
@@ -375,126 +342,8 @@ internal fun InvestmentDashboard(
     }
 }
 
-@Composable private fun PortfolioPage(
-    state: InvestmentsRepository.DashboardState,
-    onCategory: () -> Unit,
-    onQuick: () -> Unit,
-    onAdd: () -> Unit,
-    onSecurity: (String) -> Unit,
-    horizontalInset: androidx.compose.ui.unit.Dp
-) {
-    val summary = state.summary
-    LazyColumn(
-        Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = horizontalInset, end = horizontalInset, top = 10.dp, bottom = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(GlassSizes.sectionGap)
-    ) {
-        item { PortfolioHero(summary) }
-        item {
-            CategoryRow("Акции", Icons.Rounded.BarChart, Orange,
-                categoryValue(summary, "STOCK"), categoryPerformance(summary, "STOCK"), onCategory)
-        }
-        item {
-            CategoryRow("Облигации", Icons.Rounded.Layers, Color(0xFFBE86DD),
-                categoryValue(summary, "BOND"), categoryPerformance(summary, "BOND"), onCategory)
-        }
-        item {
-            CategoryRow("Фонды", Icons.Rounded.PieChart, Color(0xFF25BBEF),
-                categoryValue(summary, "FUND"), categoryPerformance(summary, "FUND"), onCategory)
-        }
-        item {
-            CategoryRow("Дивиденды", Icons.Rounded.Payments, Green, summary.dividendsMinor,
-                if (summary.dividendsMinor != 0L) "Получено" else "Нет выплат", onCategory)
-        }
-        item {
-            CategoryRow("Купоны", Icons.Rounded.ConfirmationNumber, Orange, summary.couponsMinor,
-                if (summary.couponsMinor != 0L) "Получено" else "Нет выплат", onCategory)
-        }
-        item {
-            GlassActionButton("Быстрое действие", onClick = onQuick,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
-        }
-        item { Spacer(Modifier.height(28.dp)) }
-        if (state.securities.isEmpty()) {
-            item {
-                EmptyState("Портфель пока пуст", "Добавьте первую бумагу, затем запишите покупку.",
-                    actionLabel = "Добавить первую бумагу", onAction = onAdd)
-            }
-        } else {
-            item { Text("Мои бумаги", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) }
-            items(summary.positions.filter { it.quantityMicros > 0 }.take(4), key = { it.security.id }) { position ->
-                PositionRow(position) { onSecurity(position.security.id) }
-            }
-        }
-    }
-}
-
 private fun categoryValue(summary: PortfolioMath.Summary, kind: String) = summary.positions
     .filter { it.security.kind == kind }.sumOf { it.currentValueMinor }
-
-private fun categoryPerformance(summary: PortfolioMath.Summary, kind: String): String {
-    val positions = summary.positions.filter { it.security.kind == kind && it.quantityMicros > 0 }
-    val basis = positions.sumOf { it.costMinor }
-    if (basis <= 0L) return "Нет позиций"
-    val gain = positions.sumOf { it.unrealizedMinor }
-    return String.format(Locale.forLanguageTag("ru-RU"), "%+.1f %%",
-        gain.toDouble() * 100.0 / basis.toDouble())
-}
-
-@Composable private fun PortfolioHero(summary: PortfolioMath.Summary) {
-    val profit = summary.unrealizedMinor + summary.realizedMinor + summary.dividendsMinor + summary.couponsMinor
-    val largeFont = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.2f
-    Box(Modifier.fillMaxWidth().heightIn(min = 162.dp).padding(horizontal = 12.dp)) {
-        if (!largeFont) Box(Modifier.align(Alignment.BottomEnd).width(145.dp).height(95.dp)
-            .background(Brush.radialGradient(listOf(Orange.copy(alpha = .10f), Color.Transparent)))) {
-            Text("История стоимости\nпока недоступна", color = SoftText.copy(alpha = .68f),
-                fontSize = 10.sp, lineHeight = 14.sp, modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 15.dp))
-        }
-        Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Стоимость портфеля", color = StrongText, fontSize = 15.sp)
-                Spacer(Modifier.width(6.dp))
-                Icon(Icons.Outlined.Info, "Рыночная стоимость по введённым ценам", tint = SoftText, modifier = Modifier.size(15.dp))
-            }
-            Spacer(Modifier.height(3.dp))
-            AnimatedContent(targetState = summary.marketValueMinor, label = "portfolio-total", transitionSpec = {
-                (androidx.compose.animation.fadeIn(tween(160)) +
-                    androidx.compose.animation.slideInVertically(tween(180)) { it / 4 }) togetherWith
-                    androidx.compose.animation.fadeOut(tween(100))
-            }) { current ->
-                Text(MoneyMath.formatMoney(current), color = StrongText,
-                    fontSize = 36.sp, lineHeight = 43.sp, fontWeight = FontWeight.SemiBold)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(signedMoney(summary.unrealizedMinor),
-                    color = if (summary.unrealizedMinor >= 0L) Green else Red,
-                    fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                Text(" по позициям", color = StrongText, fontSize = 12.sp)
-            }
-            Spacer(Modifier.height(18.dp))
-            if (largeFont) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                    PortfolioProfit(profit, Modifier.weight(1f))
-                    Spacer(Modifier.width(12.dp))
-                    Box(Modifier.width(145.dp).heightIn(min = 56.dp)
-                        .background(Brush.radialGradient(listOf(Orange.copy(alpha = .10f), Color.Transparent)))) {
-                        Text("История стоимости\nпока недоступна", color = SoftText.copy(alpha = .68f),
-                            fontSize = 10.sp, lineHeight = 14.sp,
-                            modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 6.dp))
-                    }
-                }
-            } else PortfolioProfit(profit)
-        }
-    }
-}
-
-@Composable private fun PortfolioProfit(profit: Long, modifier: Modifier = Modifier) {
-    Column(modifier) {
-        Text("Прибыль", color = SoftText, fontSize = 15.sp)
-        Text(signedMoney(profit), color = if (profit >= 0) Green else Red,
-            fontSize = 16.sp, fontWeight = FontWeight.Medium)
-    }
-}
 
 @Composable private fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
     Column(modifier) {
@@ -506,55 +355,12 @@ private fun categoryPerformance(summary: PortfolioMath.Summary, kind: String): S
 
 private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyMath.formatMoney(kotlin.math.abs(minor))
 
-@Composable private fun CategoryRow(
-    title: String, icon: ImageVector, tint: Color, minor: Long, supporting: String, onClick: () -> Unit
-) {
-    val shape = RoundedCornerShape(21.dp)
-    val largeFont = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.2f
-    Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).shadow(5.dp, shape)
-        .clip(shape).glassSurface().glassClick(onClick)
-        .drawWithCache {
-            val localGlow = Brush.radialGradient(listOf(tint.copy(alpha = .10f), Color.Transparent),
-                center = Offset(40.dp.toPx(), 32.dp.toPx()), radius = 100.dp.toPx())
-            onDrawBehind { drawRect(localGlow) }
-        }
-        .padding(start = 18.dp, end = 10.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        GlassBadge(icon, tint, Modifier.size(44.dp), glyph = title)
-        Spacer(Modifier.width(18.dp))
-        if (largeFont) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(title, color = StrongText, fontSize = 16.sp, maxLines = 2)
-                Text(MoneyMath.formatMoney(minor), color = StrongText, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                Text(supporting, color = if (supporting.startsWith("+")) Green
-                    else if (supporting.startsWith("−") || supporting.startsWith("-")) Red else SoftText,
-                    fontSize = 14.sp)
-            }
-        } else {
-        Text(title, color = StrongText, fontWeight = FontWeight.Medium, fontSize = 16.sp,
-            modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Column(horizontalAlignment = Alignment.End) {
-            Text(MoneyMath.formatMoney(minor), color = StrongText, fontWeight = FontWeight.Medium, fontSize = 16.sp)
-            Text(supporting, color = if (supporting.startsWith("+")) Green
-                else if (supporting.startsWith("−") || supporting.startsWith("-")) Red else SoftText,
-                fontSize = 14.sp, lineHeight = 19.sp)
-        }
-        }
-        Spacer(Modifier.width(5.dp))
-        Icon(Icons.Rounded.ChevronRight, null, tint = StrongText, modifier = Modifier.size(18.dp))
-    }
-}
-
 @Composable private fun GlassBadge(
     icon: ImageVector, tint: Color, modifier: Modifier = Modifier.size(42.dp), glyph: String? = null,
     vivid: Boolean = false
 ) {
-    Box(modifier.clip(CircleShape).background(Color.Black.copy(alpha = .16f))
-        .background(Brush.radialGradient(listOf(tint.copy(alpha = if (vivid) .48f else .30f),
-            tint.copy(alpha = if (vivid) .19f else .10f))))
-        .background(Brush.verticalGradient(listOf(Color.White.copy(alpha = .04f), Color.Transparent)))
-        .border(.6.dp, tint.copy(alpha = .16f), CircleShape), contentAlignment = Alignment.Center) {
-        if (glyph == null) Icon(icon, null, tint = tint, modifier = Modifier.size(if (vivid) 30.dp else 27.dp))
+    Box(modifier.clip(RoundedCornerShape(9.dp)).background(tint.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
+        if (glyph == null) Icon(icon, null, tint = tint, modifier = Modifier.size(27.dp))
         else CategoryGlyph(glyph, tint)
     }
 }
@@ -653,7 +459,7 @@ private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyM
         item {
             OutlinedTextField(query, { query = it }, enabled = active, placeholder = { Text("Название или тикер") },
                 leadingIcon = { Icon(Icons.Rounded.Search, null, tint = SoftText) },
-                singleLine = true, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth())
+                singleLine = true, shape = RoundedCornerShape(11.dp), modifier = Modifier.fillMaxWidth())
         }
         item {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -730,13 +536,13 @@ private data class Operation(
 )
 
 @Composable private fun HistoryTopBar(onBack: () -> Unit, horizontalInset: androidx.compose.ui.unit.Dp) {
-    Box(Modifier.fillMaxWidth().height(56.dp)) {
-        Text("История операций", color = StrongText, fontSize = 20.sp, fontWeight = FontWeight.Medium,
-            modifier = Modifier.align(Alignment.Center).offset(y = 2.dp))
-        IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart)
-            .padding(start = horizontalInset - 4.dp).size(48.dp)) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onBack, modifier = Modifier.size(48.dp)) {
             Icon(Icons.Rounded.ArrowBack, "Назад к портфелю", tint = StrongText, modifier = Modifier.size(24.dp))
         }
+        Text("История операций", color = StrongText, fontSize = 22.sp, lineHeight = 27.sp, fontWeight = FontWeight.SemiBold,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(48.dp))
     }
 }
 
@@ -786,8 +592,8 @@ private data class Operation(
                     color = StrongText, fontSize = 15.sp, modifier = Modifier.padding(start = 4.dp))
                 Spacer(Modifier.height(10.dp))
                 Column(Modifier.fillMaxWidth().animateContentSize(tween(180))
-                    .shadow(5.dp, RoundedCornerShape(19.dp)).clip(RoundedCornerShape(19.dp))
-                    .glassSurface(corner = 19f).padding(horizontal = 8.dp, vertical = 2.dp)) {
+                    .clip(RoundedCornerShape(14.dp))
+                    .glassSurface(corner = 14f).padding(horizontal = 8.dp, vertical = 2.dp)) {
                     list.forEachIndexed { index, op ->
                         key(op.source, op.id) {
                             val appearance = remember { androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } }
@@ -1002,9 +808,9 @@ private data class Operation(
 @Composable private fun ActionEntry(
     title: String, icon: ImageVector, glyph: String? = null, action: () -> Unit
 ) {
-    val shape = RoundedCornerShape(18.dp)
-    Row(Modifier.fillMaxWidth().heightIn(min = 50.dp).shadow(5.dp, shape)
-        .clip(shape).glassSurface(corner = 18f, warm = true).glassClick(action)
+    val shape = RoundedCornerShape(11.dp)
+    Row(Modifier.fillMaxWidth().heightIn(min = 50.dp)
+        .clip(shape).glassSurface(corner = 11f).glassClick(action)
         .padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         GlassBadge(icon, Orange, Modifier.size(36.dp), glyph)
         Spacer(Modifier.width(14.dp))
