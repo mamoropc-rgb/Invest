@@ -3,6 +3,8 @@
 set -euo pipefail
 capture_dir="${CAPTURE_DIR:-build/outputs/premium-glass}"
 capture_apk="${CAPTURE_APK:-app/build/outputs/apk/debug/app-debug.apk}"
+capture_device="${CAPTURE_DEVICE:-all}"
+[[ "$capture_device" == phone || "$capture_device" == tablet || "$capture_device" == all ]]
 mkdir -p "$capture_dir"
 trap 'adb logcat -d > "$capture_dir/logcat.txt" || true' EXIT
 adb install -r "$capture_apk" </dev/null
@@ -14,8 +16,6 @@ adb shell cmd overlay enable com.android.internal.systemui.navbar.gestural || tr
 adb shell settings put system font_scale 1.0
 adb shell wm set-fix-to-user-rotation enabled
 adb shell wm set-user-rotation lock 0
-adb shell wm size 1080x2400
-adb shell wm density 480
 
 snapshot() {
     local capture_mode="$1" capture_name="$2" capture_text="$3"
@@ -64,6 +64,9 @@ print('Screenshot dimensions verified:', actual)
 PYSIZE
 }
 
+if [[ "$capture_device" != tablet ]]; then
+adb shell wm size 1080x2400
+adb shell wm density 480
 snapshot portfolio portfolio 'Стоимость портфеля'
 snapshot actions actions 'Быстрые действия'
 snapshot operations operations 'История операций'
@@ -71,7 +74,9 @@ snapshot empty empty 'Стоимость портфеля'
 snapshot assets assets 'Мои бумаги'
 snapshot analytics analytics 'Структура портфеля'
 snapshot more more 'Связь с Кошельком'
+fi
 
+if [[ "$capture_device" != phone ]]; then
 # The workflow uses a native 2560x1600 tablet profile, avoiding the phone AVD's
 # forced-width cap. Capture both logical orientations without scaling any PNG.
 adb shell wm size 2560x1600
@@ -79,7 +84,9 @@ adb shell wm density 240
 snapshot portfolio tablet-landscape 'Стоимость портфеля' 2560 1600
 adb shell wm size 1600x2560
 snapshot portfolio tablet-portrait 'Стоимость портфеля' 1600 2560
+fi
 
+if [[ "$capture_device" != tablet ]]; then
 adb shell wm size 1080x2400
 adb shell wm density 480
 adb shell settings put system font_scale 1.5
@@ -89,4 +96,5 @@ snapshot operations operations-font-150 'История операций'
 snapshot assets assets-font-150 'Мои бумаги'
 snapshot analytics analytics-font-150 'Структура портфеля'
 snapshot more more-font-150 'Связь с Кошельком'
+fi
 adb logcat -d > "$capture_dir/logcat.txt"
