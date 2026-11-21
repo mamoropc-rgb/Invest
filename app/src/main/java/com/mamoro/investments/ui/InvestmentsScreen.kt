@@ -287,12 +287,12 @@ internal fun InvestmentDashboard(
 ) {
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = horizontalInset), verticalAlignment = Alignment.CenterVertically) {
         Text("Инвестиции", color = StrongText, fontSize = 30.sp, lineHeight = 36.sp,
-            fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).offset(y = 7.dp))
+            fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).offset(y = 9.dp))
         IconButton(onClick = onHistory, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.Outlined.NotificationsNone, "События портфеля", tint = StrongText, modifier = Modifier.size(24.dp))
+            Icon(Icons.Outlined.NotificationsNone, "События портфеля", tint = StrongText, modifier = Modifier.size(28.dp))
         }
         IconButton(onClick = onMenu, modifier = Modifier.size(48.dp)) {
-            Icon(Icons.Outlined.PersonOutline, "Профиль", tint = StrongText, modifier = Modifier.size(24.dp))
+            Icon(Icons.Outlined.PersonOutline, "Профиль", tint = StrongText, modifier = Modifier.size(28.dp))
         }
     }
 }

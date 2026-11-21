@@ -61,7 +61,7 @@ internal fun PrecisePhonePortfolio(
     onCategory: () -> Unit, onQuick: () -> Unit, onAdd: () -> Unit
 ) {
     var period by rememberSaveable { mutableStateOf("1М") }
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 4.dp, end = 4.dp, top = 5.dp, bottom = 22.dp),
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 4.dp, end = 4.dp, top = 9.dp, bottom = 22.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { DataPortfolioHero(state.summary, history, period, { period = it }) }
         item {
@@ -74,7 +74,7 @@ internal fun PrecisePhonePortfolio(
         }
         item {
             GlassActionButton("Быстрое действие", onQuick,
-                Modifier.fillMaxWidth().padding(horizontal = 8.dp).padding(top = 6.dp))
+                Modifier.fillMaxWidth().padding(horizontal = 6.dp).padding(top = 6.dp))
         }
         if (state.securities.isEmpty()) item {
             TextButton(onClick = onAdd, modifier = Modifier.fillMaxWidth()) { Text("Добавить первую бумагу", color = Orange) }
@@ -119,15 +119,15 @@ internal fun DataPortfolioHero(
     val profit = summary.unrealizedMinor + summary.realizedMinor + summary.dividendsMinor + summary.couponsMinor
     val large = LocalDensity.current.fontScale > 1.2f
     Column(modifier.fillMaxWidth().heightIn(min = if (tablet) 350.dp else 284.dp)
-        .clip(RoundedCornerShape(14.dp)).glassSurface().padding(start = if (tablet) 22.dp else 18.dp,
-            end = if (tablet) 20.dp else 12.dp, top = 14.dp, bottom = 4.dp)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+        .clip(RoundedCornerShape(14.dp)).glassSurface().padding(start = if (tablet) 22.dp else 12.dp,
+            end = if (tablet) 20.dp else 10.dp, top = if (tablet) 14.dp else 17.dp, bottom = 4.dp)) {
+        Row(Modifier.fillMaxWidth().padding(start = if (tablet) 0.dp else 7.dp), verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Text("Стоимость портфеля", color = SoftText, fontSize = 17.sp, lineHeight = 22.sp)
                 Spacer(Modifier.height(3.dp))
                 AnimatedContent(summary.marketValueMinor, label = "data-portfolio-total") { value ->
-                    Text(MoneyMath.formatMoney(value), color = StrongText, fontSize = if (tablet) 42.sp else 46.sp,
-                        lineHeight = 52.sp, fontWeight = FontWeight.Bold)
+                    Text(MoneyMath.formatMoney(value), color = StrongText, fontSize = if (tablet) 42.sp else 47.sp,
+                        lineHeight = 53.sp, fontWeight = FontWeight.Bold)
                 }
                 Text(dataMoney(change) + if (percent != null) " · $percent" else " по позициям",
                     color = if (change >= 0) Green else Red, fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.SemiBold)
@@ -145,7 +145,7 @@ internal fun DataPortfolioHero(
                 DataPeriodSelector(period, onPeriod, Modifier.widthIn(max = 270.dp).fillMaxWidth())
             }
         }
-        DataHistoryChart(visible, Modifier.fillMaxWidth().then(if (tablet) Modifier.weight(1f).heightIn(min = 148.dp) else Modifier.height(92.dp)), tablet)
+        DataHistoryChart(visible, Modifier.fillMaxWidth().then(if (tablet) Modifier.weight(1f).heightIn(min = 148.dp) else Modifier.height(87.dp)), tablet)
         if (!tablet) DataPeriodSelector(period, onPeriod, Modifier.fillMaxWidth())
         if (tablet && onQuick != null && large) GlassActionButton("Быстрое действие", onQuick, Modifier.fillMaxWidth().padding(vertical = 8.dp))
     }
@@ -204,7 +204,10 @@ internal fun DataHistoryChart(points: List<PortfolioHistoryPoint>, modifier: Mod
                 val line = Path()
                 points.forEachIndexed { index, point ->
                     val x = ((point.time-first)/duration).toFloat()*size.width
-                    val y = ((high-point.valueMinor)/(high-low)).toFloat()*size.height
+                    val y = if (axes) ((high-point.valueMinor)/(high-low)).toFloat()*size.height
+                    else if (maxValue == minValue) size.height/2
+                    else 3.dp.toPx() + ((maxValue-point.valueMinor)/(maxValue-minValue)).toFloat() *
+                        (size.height-16.dp.toPx()).coerceAtLeast(0f)
                     if (index == 0) line.moveTo(x,y) else line.lineTo(x,y)
                 }
                 val area = Path().apply { addPath(line); lineTo(size.width,size.height); lineTo(0f,size.height); close() }
