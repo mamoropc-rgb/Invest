@@ -101,7 +101,7 @@ fun Modifier.glassSurface(corner: Float = 21f, warm: Boolean = false): Modifier 
             Offset(w * .95f, h * 1.25f), w * .5f
         )
         val reflectionCenter = Offset(w * .80f, h * .18f)
-        val reflectionRadius = w * .35f
+        val reflectionRadius = w * .28f
         val warmReflection = Brush.radialGradient(
             0f to Color(0xFFE6915F).copy(alpha = .36f),
             .6f to Color(0xFFE6915F).copy(alpha = .25f), 1f to Color.Transparent,
@@ -118,7 +118,7 @@ fun Modifier.glassSurface(corner: Float = 21f, warm: Boolean = false): Modifier 
             drawRoundRect(base, cornerRadius = r)
             drawRoundRect(topLight, cornerRadius = r)
             drawRoundRect(amber, cornerRadius = r)
-            if (warm) scale(1f, .65f, pivot = reflectionCenter) {
+            if (warm) scale(1f, .35f, pivot = reflectionCenter) {
                 drawCircle(warmReflection, reflectionRadius, reflectionCenter)
             }
             // Wide dim bevel, then the brighter outside edge and the upper reflection.
