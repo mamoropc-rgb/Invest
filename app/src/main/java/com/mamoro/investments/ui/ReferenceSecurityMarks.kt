@@ -1,0 +1,31 @@
+package com.mamoro.investments.ui
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+
+/** Small reference symbols reconstructed as cached vector silhouettes, not screen-sized bitmaps. */
+private data class SecurityOutline(val width: Float,val height: Float,val runs: FloatArray)
+private val securityOutlines = mapOf(
+    "LKOH" to SecurityOutline(37f, 38f, floatArrayOf(7f, 7f, 10f, 8f, 14f, 7f, 16f, 8f, 20f, 7f, 23f, 8f, 29f, 7f, 32f, 8f, 7f, 8f, 10f, 9f, 13f, 8f, 17f, 9f, 19f, 8f, 23f, 9f, 28f, 8f, 32f, 9f, 7f, 9f, 10f, 10f, 13f, 9f, 17f, 10f, 19f, 9f, 23f, 10f, 28f, 9f, 31f, 10f, 7f, 10f, 10f, 11f, 13f, 10f, 17f, 11f, 19f, 10f, 23f, 11f, 27f, 10f, 31f, 11f, 7f, 11f, 10f, 12f, 13f, 11f, 17f, 12f, 19f, 11f, 23f, 12f, 26f, 11f, 30f, 12f, 7f, 12f, 10f, 13f, 13f, 12f, 17f, 13f, 19f, 12f, 23f, 13f, 26f, 12f, 30f, 13f, 7f, 13f, 10f, 14f, 13f, 13f, 17f, 14f, 20f, 13f, 23f, 14f, 25f, 13f, 29f, 14f, 7f, 14f, 10f, 15f, 13f, 14f, 17f, 15f, 20f, 14f, 23f, 15f, 24f, 14f, 28f, 15f, 7f, 15f, 10f, 16f, 13f, 15f, 17f, 16f, 20f, 15f, 23f, 16f, 24f, 15f, 28f, 16f, 7f, 16f, 10f, 17f, 13f, 16f, 17f, 17f, 20f, 16f, 23f, 17f, 25f, 16f, 28f, 17f, 7f, 17f, 10f, 18f, 13f, 17f, 17f, 18f, 19f, 17f, 23f, 18f, 25f, 17f, 29f, 18f, 7f, 18f, 10f, 19f, 13f, 18f, 17f, 19f, 19f, 18f, 23f, 19f, 26f, 18f, 29f, 19f, 7f, 19f, 10f, 20f, 13f, 19f, 17f, 20f, 19f, 19f, 23f, 20f, 26f, 19f, 30f, 20f, 7f, 20f, 10f, 21f, 13f, 20f, 17f, 21f, 19f, 20f, 23f, 21f, 26f, 20f, 30f, 21f, 7f, 21f, 10f, 22f, 13f, 21f, 17f, 22f, 19f, 21f, 23f, 22f, 27f, 21f, 30f, 22f, 7f, 22f, 10f, 23f, 14f, 22f, 22f, 23f, 27f, 22f, 31f, 23f, 7f, 23f, 10f, 24f, 14f, 23f, 22f, 24f, 28f, 23f, 31f, 24f, 7f, 24f, 10f, 25f, 17f, 24f, 19f, 25f, 28f, 24f, 32f, 25f, 7f, 25f, 10f, 26f, 28f, 25f, 32f, 26f, 7f, 26f, 12f, 27f, 27f, 26f, 32f, 27f, 7f, 27f, 33f, 28f, 7f, 28f, 33f, 29f, 8f, 29f, 15f, 30f, 17f, 29f, 32f, 30f)),
+    "SBER" to SecurityOutline(37f, 37f, floatArrayOf(17f, 5f, 23f, 6f, 14f, 6f, 25f, 7f, 12f, 7f, 27f, 8f, 11f, 8f, 15f, 9f, 24f, 8f, 27f, 9f, 10f, 9f, 14f, 10f, 9f, 10f, 12f, 11f, 9f, 11f, 12f, 12f, 28f, 11f, 31f, 12f, 8f, 12f, 11f, 13f, 26f, 12f, 31f, 13f, 8f, 13f, 11f, 14f, 25f, 13f, 29f, 14f, 8f, 14f, 10f, 15f, 23f, 14f, 27f, 15f, 8f, 15f, 10f, 16f, 15f, 15f, 17f, 16f, 22f, 15f, 26f, 16f, 7f, 16f, 10f, 17f, 15f, 16f, 19f, 17f, 21f, 16f, 25f, 17f, 7f, 17f, 10f, 18f, 16f, 17f, 23f, 18f, 29f, 17f, 32f, 18f, 8f, 18f, 10f, 19f, 17f, 18f, 22f, 19f, 29f, 18f, 32f, 19f, 8f, 19f, 10f, 20f, 18f, 19f, 21f, 20f, 29f, 19f, 31f, 20f, 8f, 20f, 11f, 21f, 28f, 20f, 31f, 21f, 8f, 21f, 11f, 22f, 28f, 21f, 31f, 22f, 9f, 22f, 12f, 23f, 27f, 22f, 31f, 23f, 10f, 23f, 13f, 24f, 26f, 23f, 30f, 24f, 11f, 24f, 14f, 25f, 25f, 24f, 29f, 25f, 12f, 25f, 17f, 26f, 23f, 25f, 28f, 26f, 13f, 26f, 26f, 27f, 15f, 27f, 24f, 28f)),
+    "OFZ" to SecurityOutline(41f, 38f, floatArrayOf(20f, 0f, 21f, 1f, 19f, 1f, 22f, 2f, 18f, 2f, 23f, 3f, 7f, 3f, 8f, 4f, 19f, 3f, 22f, 4f, 31f, 3f, 32f, 4f, 7f, 4f, 8f, 5f, 11f, 4f, 12f, 5f, 14f, 4f, 15f, 5f, 27f, 4f, 29f, 5f, 31f, 4f, 33f, 5f, 7f, 5f, 8f, 6f, 14f, 5f, 15f, 6f, 27f, 5f, 28f, 6f, 31f, 5f, 33f, 6f, 4f, 6f, 5f, 7f, 13f, 6f, 16f, 7f, 26f, 6f, 29f, 7f, 35f, 6f, 37f, 7f, 4f, 7f, 7f, 8f, 12f, 7f, 18f, 8f, 24f, 7f, 29f, 8f, 35f, 7f, 37f, 8f, 3f, 8f, 7f, 9f, 12f, 8f, 18f, 9f, 23f, 8f, 29f, 9f, 34f, 8f, 38f, 9f, 3f, 9f, 8f, 10f, 16f, 9f, 19f, 10f, 23f, 9f, 26f, 10f, 33f, 9f, 38f, 10f, 3f, 10f, 9f, 11f, 17f, 10f, 19f, 11f, 22f, 10f, 24f, 11f, 32f, 10f, 38f, 11f, 3f, 11f, 10f, 12f, 17f, 11f, 20f, 12f, 22f, 11f, 24f, 12f, 31f, 11f, 38f, 12f, 3f, 12f, 12f, 13f, 18f, 12f, 24f, 13f, 30f, 12f, 38f, 13f, 3f, 13f, 13f, 14f, 17f, 13f, 24f, 14f, 29f, 13f, 38f, 14f, 3f, 14f, 13f, 15f, 17f, 14f, 19f, 15f, 22f, 14f, 24f, 15f, 29f, 14f, 38f, 15f, 3f, 15f, 12f, 16f, 18f, 15f, 22f, 16f, 29f, 15f, 38f, 16f, 4f, 16f, 13f, 17f, 18f, 16f, 24f, 17f, 28f, 16f, 38f, 17f, 4f, 17f, 7f, 18f, 8f, 17f, 13f, 18f, 17f, 17f, 24f, 18f, 27f, 17f, 37f, 18f, 4f, 18f, 15f, 19f, 16f, 18f, 25f, 19f, 26f, 18f, 37f, 19f, 4f, 19f, 15f, 20f, 16f, 19f, 25f, 20f, 26f, 19f, 37f, 20f, 5f, 20f, 11f, 21f, 12f, 20f, 14f, 21f, 17f, 20f, 24f, 21f, 27f, 20f, 36f, 21f, 6f, 21f, 14f, 22f, 17f, 21f, 24f, 22f, 27f, 21f, 34f, 22f, 9f, 22f, 13f, 23f, 17f, 22f, 23f, 23f, 29f, 22f, 32f, 23f, 21f, 23f, 23f, 24f, 14f, 24f, 16f, 25f, 24f, 24f, 26f, 25f, 14f, 25f, 16f, 26f, 19f, 25f, 22f, 26f, 25f, 25f, 27f, 26f, 14f, 26f, 16f, 27f, 19f, 26f, 22f, 27f, 25f, 26f, 27f, 27f, 31f, 26f, 32f, 27f, 9f, 27f, 10f, 28f, 19f, 27f, 22f, 28f, 26f, 27f, 27f, 28f, 30f, 27f, 33f, 28f, 9f, 28f, 11f, 29f, 19f, 28f, 23f, 29f, 29f, 28f, 33f, 29f, 9f, 29f, 11f, 30f, 16f, 29f, 18f, 30f, 19f, 29f, 25f, 30f, 15f, 30f, 26f, 31f, 14f, 31f, 26f, 32f, 17f, 32f, 24f, 33f)),
+    "GAZP" to SecurityOutline(39f, 39f, floatArrayOf(25f, 10f, 27f, 11f, 25f, 11f, 28f, 12f, 18f, 12f, 22f, 13f, 24f, 12f, 29f, 13f, 16f, 13f, 22f, 14f, 24f, 13f, 29f, 14f, 14f, 14f, 22f, 15f, 24f, 14f, 29f, 15f, 13f, 15f, 22f, 16f, 24f, 15f, 29f, 16f, 13f, 16f, 22f, 17f, 27f, 16f, 28f, 17f, 12f, 17f, 22f, 18f, 11f, 18f, 22f, 19f, 11f, 19f, 21f, 20f, 11f, 20f, 19f, 21f, 10f, 21f, 17f, 22f, 10f, 22f, 16f, 23f, 10f, 23f, 16f, 24f, 23f, 23f, 30f, 24f, 11f, 24f, 15f, 25f, 22f, 24f, 30f, 25f, 11f, 25f, 15f, 26f, 26f, 25f, 30f, 26f, 11f, 26f, 15f, 27f, 27f, 26f, 30f, 27f, 12f, 27f, 15f, 28f, 27f, 27f, 30f, 28f, 13f, 28f, 16f, 29f, 27f, 28f, 30f, 29f, 14f, 29f, 16f, 30f, 27f, 29f, 30f, 30f, 15f, 30f, 17f, 31f, 27f, 30f, 29f, 31f, 16f, 31f, 18f, 32f, 26f, 31f, 28f, 32f))
+)
+
+@Composable internal fun ReferenceSecurityGlyph(key: String,modifier: Modifier) {
+    val shape = securityOutlines.getValue(key)
+    Box(modifier.drawWithCache {
+        val path = Path()
+        val sx = size.width/shape.width
+        val sy = size.height/shape.height
+        for (i in shape.runs.indices step 4) path.addRect(Rect(shape.runs[i]*sx,shape.runs[i+1]*sy,
+            shape.runs[i+2]*sx,shape.runs[i+3]*sy))
+        val ink = if (key == "OFZ") Color(0xFFC6CDD2) else Color(0xFFF5F6F7)
+        onDrawBehind { drawPath(path,ink) }
+    })
+}

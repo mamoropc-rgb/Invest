@@ -1,5 +1,7 @@
 package com.mamoro.investments.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -63,13 +65,15 @@ import java.util.Locale
         Spacer(Modifier.height(26.dp))
         listOf("Портфель", "Активы", "Операции", "Аналитика", "Ещё").forEachIndexed { index, label ->
             val active = selectedPage == index
+            val highlight by animateColorAsState(if (active) Color(0xFF4C3517) else Color.Transparent,tween(150),label = "rail-highlight")
+            val tint by animateColorAsState(if (active) Orange else StrongText,tween(150),label = "rail-tint")
             Row(Modifier.padding(horizontal = 7.dp).fillMaxWidth().heightIn(min = 48.dp)
-                .clip(RoundedCornerShape(10.dp)).background(if (active) Color(0xFF4C3517) else Color.Transparent)
+                .clip(RoundedCornerShape(10.dp)).background(highlight)
                 .semantics { selected = active }.glassClick { onSelect(index) }
                 .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                DataGlyph(label, Modifier.size(26.dp), if (active) Orange else StrongText)
+                DataGlyph(label, Modifier.size(26.dp), tint)
                 Spacer(Modifier.width(16.dp))
-                Text(label, color = if (active) Orange else StrongText, fontSize = 17.sp, lineHeight = 22.sp)
+                Text(label, color = tint, fontSize = 17.sp, lineHeight = 22.sp)
             }
             Spacer(Modifier.height(8.dp))
         }
@@ -88,7 +92,7 @@ import java.util.Locale
             Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 Column(Modifier.weight(1.55f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     DataPortfolioHero(state.summary, history, period, onPeriod, Modifier.weight(.65f), true, onQuick)
-                    DataHoldings(state.summary, onSecurity, onCategory, Modifier.weight(.35f))
+                    DataHoldings(state.summary, onSecurity, onCategory, Modifier.weight(.35f), scrollable = true)
                 }
                 Column(Modifier.weight(1f).fillMaxHeight(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     DataAllocation(state.summary, Modifier.height(266.dp))
@@ -115,11 +119,13 @@ import java.util.Locale
 }
 
 @Composable private fun DataHoldings(summary: PortfolioMath.Summary, onSecurity: (String) -> Unit,
-    onAll: () -> Unit, modifier: Modifier) {
+    onAll: () -> Unit, modifier: Modifier, scrollable: Boolean = false) {
     val large = LocalDensity.current.fontScale > 1.2f
     val positions = summary.positions.filter { !it.security.archived && it.quantityMicros > 0 }.take(3)
     DataPanel(modifier.testTag("portfolio-holdings")) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
+        // Only the bounded landscape table scrolls independently. Portrait uses the page scroll.
+        val tableScroll = rememberScrollState()
+        Column(Modifier.fillMaxWidth().then(if (scrollable) Modifier.verticalScroll(tableScroll) else Modifier)) {
             Row(Modifier.fillMaxWidth().heightIn(min = 40.dp).glassClick(onAll).padding(start = 20.dp, end = 48.dp, top = 8.dp, bottom = 8.dp)) {
                 Text("Актив", Modifier.weight(.5f), fontSize = 16.sp, color = StrongText)
                 Text("Стоимость", Modifier.weight(.22f), fontSize = 16.sp, color = StrongText)
@@ -135,7 +141,7 @@ import java.util.Locale
                         Spacer(Modifier.width(24.dp))
                         Column(Modifier.weight(1f)) {
                             Text(position.security.name, fontSize = 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold)
-                            Text(if (position.security.kind == "BOND") "Облигации" else "Акции · ${position.security.ticker}",
+                            Text(when (position.security.kind) { "BOND" -> "Облигации"; "FUND" -> "Фонды · ${position.security.ticker}"; else -> "Акции · ${position.security.ticker}" },
                                 fontSize = 12.sp, lineHeight = 16.sp, color = SoftText)
                             if (large) Text(MoneyMath.formatMoney(position.currentValueMinor), fontSize = 16.sp)
                         }
@@ -159,17 +165,14 @@ import java.util.Locale
 @Composable internal fun SecurityMark(ticker: String, kind: String, modifier: Modifier = Modifier.size(36.dp)) {
     val tone = when (ticker) { "LKOH" -> Color(0xFFC6292B); "SBER" -> Color(0xFF228C35); "GAZP" -> Color(0xFF1477CE); else -> Frost }
     Box(modifier.clip(RoundedCornerShape(5.dp)).background(tone), contentAlignment = Alignment.Center) {
-        when {
-            ticker == "SBER" -> Canvas(Modifier.fillMaxSize().padding(5.dp)) {
-                drawCircle(Color.White, style = Stroke(1.8.dp.toPx()))
-                val check = Path().apply { moveTo(size.width*.22f,size.height*.5f); lineTo(size.width*.44f,size.height*.7f); lineTo(size.width*.9f,size.height*.24f) }
-                drawPath(check, Color.White, style = Stroke(2.dp.toPx(),cap = StrokeCap.Round,join = StrokeJoin.Round))
-            }
-            ticker == "LKOH" -> Text("ЛК", color = StrongText, fontSize = 22.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold, letterSpacing = (-2).sp)
-            ticker == "GAZP" -> Text("Г", color = StrongText, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            kind == "BOND" -> Icon(Icons.Outlined.AccountBalance, null, tint = StrongText, modifier = Modifier.fillMaxSize().padding(3.dp))
-            else -> Text(ticker.take(2), color = StrongText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        val key = when {
+            ticker in listOf("SBER","LKOH","GAZP") -> ticker
+            ticker.startsWith("SU") && kind == "BOND" -> "OFZ"
+            else -> null
         }
+        if (key != null) ReferenceSecurityGlyph(key,Modifier.fillMaxSize())
+        else if (kind == "BOND") Icon(Icons.Outlined.AccountBalance,null,tint = StrongText,modifier = Modifier.fillMaxSize().padding(3.dp))
+        else Text(ticker.take(2),color = StrongText,fontSize = 13.sp,fontWeight = FontWeight.SemiBold)
     }
 }
 

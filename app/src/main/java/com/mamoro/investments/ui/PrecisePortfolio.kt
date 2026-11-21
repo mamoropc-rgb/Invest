@@ -1,6 +1,9 @@
 package com.mamoro.investments.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -125,7 +128,7 @@ internal fun DataPortfolioHero(
             Column(Modifier.weight(1f)) {
                 Text("Стоимость портфеля", color = SoftText, fontSize = if (tablet) 18.sp else 17.sp, lineHeight = if (tablet) 24.sp else 22.sp)
                 Spacer(Modifier.height(3.dp))
-                AnimatedContent(summary.marketValueMinor, label = "data-portfolio-total") { value ->
+                AnimatedContent(summary.marketValueMinor, label = "data-portfolio-total", transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(100)) }) { value ->
                     Text(MoneyMath.formatMoney(value), color = StrongText, fontSize = if (tablet) 52.sp else 47.sp,
                         lineHeight = if (tablet) 60.sp else 53.sp, fontWeight = FontWeight.Bold)
                 }
@@ -241,12 +244,12 @@ internal fun DataHistoryChart(points: List<PortfolioHistoryPoint>, modifier: Mod
 internal fun DataGlyph(kind: String, modifier: Modifier = Modifier.size(26.dp), tint: Color = StrongText) {
     val icon = when (kind) {
         "Портфель" -> Icons.Outlined.WorkOutline
-        "Активы", "Фонды" -> Icons.Outlined.Layers
+        "Активы", "Фонды" -> null
         "Операции" -> Icons.Outlined.SwapHoriz
         "Аналитика", "Акции" -> null
         "Ещё" -> Icons.Outlined.MoreHoriz
-        "Облигации" -> Icons.Outlined.CreditCard
-        "Купоны" -> Icons.Outlined.CalendarToday
+        "Облигации" -> null
+        "Купоны" -> null
         else -> null
     }
     if (icon != null) Icon(icon, null, tint = tint, modifier = modifier)
@@ -258,7 +261,28 @@ internal fun DataGlyph(kind: String, modifier: Modifier = Modifier.size(26.dp), 
             }
             return@Canvas
         }
-        val stroke = Stroke(1.5f*u, cap = StrokeCap.Round)
+        val stroke = Stroke(1.5f*u, cap = StrokeCap.Round,join = StrokeJoin.Round)
+        if (kind == "Активы" || kind == "Фонды") {
+            val top = Path().apply { moveTo(14*u,3*u);lineTo(26*u,9*u);lineTo(14*u,15*u);lineTo(2*u,9*u);close() }
+            drawPath(top,tint,style = stroke)
+            listOf(15f,21f).forEach { y ->
+                val layer = Path().apply { moveTo(2*u,y*u);lineTo(14*u,(y+6)*u);lineTo(26*u,y*u) }
+                drawPath(layer,tint,style = stroke)
+            }
+            return@Canvas
+        }
+        if (kind == "Облигации") {
+            drawRoundRect(tint,Offset(2*u,5*u),Size(24*u,18*u),androidx.compose.ui.geometry.CornerRadius(2*u),style = stroke)
+            drawLine(tint,Offset(2*u,11*u),Offset(26*u,11*u),1.5f*u)
+            drawLine(tint,Offset(18*u,19*u),Offset(22*u,19*u),1.5f*u)
+            return@Canvas
+        }
+        if (kind == "Купоны") {
+            drawRoundRect(tint,Offset(3*u,5*u),Size(22*u,21*u),androidx.compose.ui.geometry.CornerRadius(2*u),style = stroke)
+            drawLine(tint,Offset(3*u,12*u),Offset(25*u,12*u),1.5f*u)
+            listOf(8f,20f).forEach { x -> drawLine(tint,Offset(x*u,2*u),Offset(x*u,8*u),1.5f*u,StrokeCap.Round) }
+            return@Canvas
+        }
         listOf(17f,12f,7f).forEach { y -> drawOval(tint, Offset(3*u,y*u),Size(16*u,6*u),style = stroke) }
         drawLine(tint,Offset(3*u,10*u),Offset(3*u,20*u),1.5f*u)
         drawLine(tint,Offset(19*u,10*u),Offset(19*u,20*u),1.5f*u)

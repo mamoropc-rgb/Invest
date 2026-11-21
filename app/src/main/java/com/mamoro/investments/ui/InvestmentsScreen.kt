@@ -124,13 +124,17 @@ internal fun InvestmentDashboard(
                 scope.launch { pager.animateScrollToPage(page, animationSpec = tween(180)) }
             }
             Column(Modifier.weight(1f).fillMaxHeight(),horizontalAlignment = Alignment.CenterHorizontally) {
-                if (!isTablet || pager.currentPage != 0) Box(paneModifier) {
+                AnimatedVisibility(visible = !isTablet || pager.currentPage != 0,
+                    enter = androidx.compose.animation.fadeIn(tween(150)) + androidx.compose.animation.expandVertically(tween(150)),
+                    exit = androidx.compose.animation.fadeOut(tween(150)) + androidx.compose.animation.shrinkVertically(tween(150))) {
+                  Box(paneModifier) {
                     if (pager.currentPage == 2) HistoryTopBar(onBack = {
                         scope.launch { pager.animateScrollToPage(0, animationSpec = tween(180)) }
                     }, horizontalInset = horizontalInset)
                     else TopBar(onMenu = { scope.launch { pager.animateScrollToPage(4, animationSpec = tween(180)) } },
                         onSearch = { scope.launch { pager.animateScrollToPage(1, animationSpec = tween(180)) } },
                         onHistory = { scope.launch { pager.animateScrollToPage(2, animationSpec = tween(180)) } },horizontalInset = horizontalInset)
+                  }
                 }
                 if (state == null) Box(Modifier.weight(1f).fillMaxWidth(),contentAlignment = Alignment.Center) {
                     CircularProgressIndicator(color = Orange)
