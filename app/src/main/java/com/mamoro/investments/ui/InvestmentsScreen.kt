@@ -21,6 +21,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.foundation.gestures.scrollable
@@ -305,9 +306,9 @@ internal fun InvestmentDashboard(
                     val tint by animateColorAsState(if (index == selected) Orange else StrongText,
                         tween(160), label = "navigation-tint")
                     val caption = if (largeFont) when (title) {
-                        "Портфель" -> "Порт\u00adфель"
-                        "Операции" -> "Опера\u00adции"
-                        "Аналитика" -> "Анали\u00adтика"
+                        "Портфель" -> "Порт-\nфель"
+                        "Операции" -> "Опера-\nции"
+                        "Аналитика" -> "Анали-\nтика"
                         else -> title
                     } else title
                     Column(Modifier.weight(1f).heightIn(min = if (largeFont) 76.dp else 58.dp)
@@ -320,7 +321,8 @@ internal fun InvestmentDashboard(
                         }
                         Spacer(Modifier.height(2.dp))
                         Text(caption, color = tint, fontSize = 10.sp, lineHeight = 12.sp,
-                            modifier = Modifier.padding(horizontal = if (largeFont) 4.dp else 0.dp),
+                            modifier = Modifier.padding(horizontal = if (largeFont) 4.dp else 0.dp)
+                                .then(if (largeFont) Modifier.clearAndSetSemantics { contentDescription = title } else Modifier),
                             maxLines = if (largeFont) 2 else 1,
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                             overflow = TextOverflow.Ellipsis)
