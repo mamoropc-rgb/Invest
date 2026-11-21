@@ -54,6 +54,37 @@ class PremiumRenderTest {
         rule.onNodeWithText("Понятно").performClick()
         rule.onNodeWithText("Стоимость портфеля").assertIsDisplayed()
     }
+    @Test @Config(qualifiers = "w800dp-h1280dp-mdpi") fun portraitTabletUsesOneVerticalScroll() {
+        rule.onNodeWithText("Стоимость портфеля").assertIsDisplayed()
+        rule.onNodeWithText("Все операции").performScrollTo().assertIsDisplayed()
+        capture("tablet-portrait")
+    }
+    @Test @Config(qualifiers = "w1280dp-h800dp-mdpi") fun tabletRecentOperationsOpensHistory() {
+        rule.onNodeWithTag("tablet-navigation").assertIsDisplayed()
+        rule.onNodeWithTag("portfolio-holdings").assertIsDisplayed()
+        rule.onNodeWithText("Последние операции").assertIsDisplayed()
+        rule.onNodeWithText("Все операции").performClick()
+        rule.mainClock.advanceTimeBy(400) // Pager transition and the tablet header expansion.
+        rule.waitForIdle()
+        capture("tablet-history")
+        rule.onNodeWithText("История операций").assertIsDisplayed()
+    }
+    @Test fun selectedPeriodSurvivesTabSwitch() {
+        rule.onNodeWithText("3М").performClick()
+        rule.onNodeWithText("3М").assertIsSelected()
+        rule.onNodeWithText("Активы").performClick()
+        rule.onNodeWithText("Мои бумаги").assertIsDisplayed()
+        rule.onNodeWithText("Портфель").performClick()
+        rule.onNodeWithText("3М").assertIsSelected()
+    }
+    @Test fun emptyHistoryDoesNotInventReturns() {
+        rule.activity.intent.putExtra("screen", "empty")
+        rule.activityRule.scenario.recreate()
+        rule.waitForIdle()
+        rule.onNodeWithContentDescription("История стоимости портфеля пока недоступна").assertIsDisplayed()
+        rule.onNode(hasContentDescription("История стоимости:", substring = true)).assertDoesNotExist()
+        rule.onNodeWithText("+12\u00a0560 ₽", substring = true).assertDoesNotExist()
+    }
     private fun capture(name: String) {
         rule.waitForIdle()
         rule.runOnIdle {
