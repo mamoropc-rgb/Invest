@@ -84,6 +84,12 @@ adb shell wm density 320
 snapshot portfolio tablet-landscape 'Стоимость портфеля' 2560 1600
 adb shell wm size 1600x2560
 snapshot portfolio tablet-portrait 'Стоимость портфеля' 1600 2560
+adb shell settings put system font_scale 1.5
+adb shell wm size 2560x1600
+snapshot portfolio tablet-landscape-font-150 'Стоимость портфеля' 2560 1600
+adb shell wm size 1600x2560
+snapshot portfolio tablet-portrait-font-150 'Стоимость портфеля' 1600 2560
+adb shell settings put system font_scale 1.0
 fi
 
 if [[ "$capture_device" != tablet ]]; then
