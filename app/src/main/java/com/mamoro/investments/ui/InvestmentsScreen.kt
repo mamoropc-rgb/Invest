@@ -210,9 +210,9 @@ internal fun InvestmentDashboard(
                     }
                 }
                 ActionEntry("Купить бумагу", Icons.Outlined.Add) { closeQuick { form = FormKind.BUY } }
-                ActionEntry("Продать", Icons.Outlined.RemoveCircleOutline) { closeQuick { form = FormKind.SELL } }
-                ActionEntry("Добавить дивиденд", Icons.Outlined.Payments, "Дивиденды") { closeQuick { form = FormKind.DIVIDEND } }
-                ActionEntry("Добавить купон", Icons.Outlined.ConfirmationNumber) { closeQuick { form = FormKind.COUPON } }
+                ActionEntry("Продать", Icons.Outlined.RemoveCircleOutline, "Продать") { closeQuick { form = FormKind.SELL } }
+                ActionEntry("Добавить дивиденд", Icons.Outlined.Payments, "Выплата") { closeQuick { form = FormKind.DIVIDEND } }
+                ActionEntry("Добавить купон", Icons.Outlined.ConfirmationNumber, "Купон") { closeQuick { form = FormKind.COUPON } }
                 ActionEntry("Пополнить счёт", Icons.Outlined.AccountBalanceWallet) { closeQuick { walletAction = "Пополнение счёта" } }
                 ActionEntry("Вывести средства", Icons.Outlined.FileUpload) { closeQuick { walletAction = "Вывод средств" } }
             }
@@ -437,14 +437,15 @@ private fun categoryPerformance(summary: PortfolioMath.Summary, kind: String): S
     val basis = positions.sumOf { it.costMinor }
     if (basis <= 0L) return "Нет позиций"
     val gain = positions.sumOf { it.unrealizedMinor }
-    return String.format(Locale.forLanguageTag("ru-RU"), "%+.1f%%",
+    return String.format(Locale.forLanguageTag("ru-RU"), "%+.1f %%",
         gain.toDouble() * 100.0 / basis.toDouble())
 }
 
 @Composable private fun PortfolioHero(summary: PortfolioMath.Summary) {
     val profit = summary.unrealizedMinor + summary.realizedMinor + summary.dividendsMinor + summary.couponsMinor
+    val largeFont = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.2f
     Box(Modifier.fillMaxWidth().heightIn(min = 162.dp).padding(horizontal = 12.dp)) {
-        Box(Modifier.align(Alignment.BottomEnd).width(145.dp).height(95.dp)
+        if (!largeFont) Box(Modifier.align(Alignment.BottomEnd).width(145.dp).height(95.dp)
             .background(Brush.radialGradient(listOf(Orange.copy(alpha = .10f), Color.Transparent)))) {
             Text("История стоимости\nпока недоступна", color = SoftText.copy(alpha = .68f),
                 fontSize = 10.sp, lineHeight = 14.sp, modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 15.dp))
@@ -453,7 +454,7 @@ private fun categoryPerformance(summary: PortfolioMath.Summary, kind: String): S
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("Стоимость портфеля", color = StrongText, fontSize = 15.sp)
                 Spacer(Modifier.width(6.dp))
-                Icon(Icons.Rounded.Info, "Рыночная стоимость по введённым ценам", tint = SoftText, modifier = Modifier.size(15.dp))
+                Icon(Icons.Outlined.Info, "Рыночная стоимость по введённым ценам", tint = SoftText, modifier = Modifier.size(15.dp))
             }
             Spacer(Modifier.height(3.dp))
             AnimatedContent(targetState = summary.marketValueMinor, label = "portfolio-total", transitionSpec = {
@@ -462,8 +463,7 @@ private fun categoryPerformance(summary: PortfolioMath.Summary, kind: String): S
                     androidx.compose.animation.fadeOut(tween(100))
             }) { current ->
                 Text(MoneyMath.formatMoney(current), color = StrongText,
-                    fontSize = 36.sp, lineHeight = 43.sp, fontWeight = FontWeight.SemiBold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    fontSize = 36.sp, lineHeight = 43.sp, fontWeight = FontWeight.SemiBold)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(signedMoney(summary.unrealizedMinor),
@@ -472,10 +472,27 @@ private fun categoryPerformance(summary: PortfolioMath.Summary, kind: String): S
                 Text(" по позициям", color = StrongText, fontSize = 12.sp)
             }
             Spacer(Modifier.height(18.dp))
-            Text("Прибыль", color = SoftText, fontSize = 15.sp)
-            Text(signedMoney(profit), color = if (profit >= 0) Green else Red,
-                fontSize = 16.sp, fontWeight = FontWeight.Medium)
+            if (largeFont) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+                    PortfolioProfit(profit, Modifier.weight(1f))
+                    Spacer(Modifier.width(12.dp))
+                    Box(Modifier.width(145.dp).heightIn(min = 56.dp)
+                        .background(Brush.radialGradient(listOf(Orange.copy(alpha = .10f), Color.Transparent)))) {
+                        Text("История стоимости\nпока недоступна", color = SoftText.copy(alpha = .68f),
+                            fontSize = 10.sp, lineHeight = 14.sp,
+                            modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 6.dp))
+                    }
+                }
+            } else PortfolioProfit(profit)
         }
+    }
+}
+
+@Composable private fun PortfolioProfit(profit: Long, modifier: Modifier = Modifier) {
+    Column(modifier) {
+        Text("Прибыль", color = SoftText, fontSize = 15.sp)
+        Text(signedMoney(profit), color = if (profit >= 0) Green else Red,
+            fontSize = 16.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -483,7 +500,7 @@ private fun categoryPerformance(summary: PortfolioMath.Summary, kind: String): S
     Column(modifier) {
         Text(label, color = SoftText, fontSize = 11.sp, maxLines = 2, lineHeight = 14.sp)
         Spacer(Modifier.height(4.dp))
-        Text(value, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -568,14 +585,32 @@ private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyM
                 drawLine(Color(0xFF174155), Offset(14*u,14*u), Offset(27*u,14*u), 1.8f*u)
             }
             "Дивиденды" -> {
-                listOf(15f, 10f, 5f).forEach { y ->
-                    drawOval(tint.copy(alpha = .12f), Offset(4*u,y*u), Size(20*u,9*u))
-                    drawOval(tint, Offset(4*u,y*u), Size(20*u,9*u), style = stroke)
+                listOf(20f, 15f, 10f, 5f).forEach { y ->
+                    drawOval(tint.copy(alpha = .12f), Offset(4*u,y*u), Size(20*u,6*u))
+                    drawOval(tint, Offset(4*u,y*u), Size(20*u,6*u), style = stroke)
                 }
-                drawLine(tint, Offset(4*u,9*u), Offset(4*u,20*u), 1.8f*u)
-                drawLine(tint, Offset(24*u,9*u), Offset(24*u,20*u), 1.8f*u)
+                drawLine(tint, Offset(4*u,8*u), Offset(4*u,23*u), 1.8f*u)
+                drawLine(tint, Offset(24*u,8*u), Offset(24*u,23*u), 1.8f*u)
             }
-            else -> rotate(-22f) {
+            "Выплата" -> {
+                listOf(11f, 7f, 3f).forEach { y ->
+                    drawOval(tint, Offset(14*u,y*u), Size(10*u,5*u), style = stroke)
+                }
+                drawLine(tint, Offset(14*u,5.5f*u), Offset(14*u,13.5f*u), 1.8f*u)
+                drawLine(tint, Offset(24*u,5.5f*u), Offset(24*u,13.5f*u), 1.8f*u)
+                listOf(20f, 15f, 10f).forEach { y ->
+                    drawOval(Color(0xFF3C301D), Offset(3*u,y*u), Size(13*u,6*u))
+                    drawOval(tint, Offset(3*u,y*u), Size(13*u,6*u), style = stroke)
+                }
+                drawLine(tint, Offset(3*u,13*u), Offset(3*u,23*u), 1.8f*u)
+                drawLine(tint, Offset(16*u,13*u), Offset(16*u,23*u), 1.8f*u)
+            }
+            "Продать" -> {
+                drawRoundRect(tint, Offset(4*u,3*u), Size(20*u,22*u),
+                    androidx.compose.ui.geometry.CornerRadius(5*u), style = stroke)
+                drawLine(tint, Offset(9*u,14*u), Offset(19*u,14*u), 1.8f*u, StrokeCap.Round)
+            }
+            else -> rotate(if (kind == "Купоны") -22f else 0f) {
                 val ticket = Path().apply {
                     moveTo(5*u,6*u); lineTo(23*u,6*u); quadraticBezierTo(26*u,6*u,26*u,9*u)
                     lineTo(26*u,11*u); quadraticBezierTo(21*u,14*u,26*u,17*u)
@@ -720,7 +755,9 @@ private data class Operation(
         } + state.income.filterNot { it.deleted }.map { income ->
             Operation(income.id, "income", income.kind,
                 if (income.kind == "DIVIDEND") "Выплата дивидендов" else "Выплата купона",
-                securities[income.securityId]?.name ?: "Бумага", income.happenedAt, income.amountMinor)
+                listOfNotNull(securities[income.securityId]?.name ?: "Бумага",
+                    income.note.trim().takeIf { it.isNotEmpty() }).joinToString(" · "),
+                income.happenedAt, income.amountMinor)
         }).sortedWith(compareByDescending<Operation> { it.time }.thenByDescending { it.id })
     }
     val visible = remember(operations, filter) { operations.filter {
@@ -779,7 +816,7 @@ private data class Operation(
     }
     Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).glassClick(onClick).padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        GlassBadge(icon, tint, Modifier.size(42.dp), vivid = true)
+        GlassBadge(icon, tint, Modifier.size(42.dp), glyph = if (op.kind == "COUPON") "Купон" else null, vivid = true)
         Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(op.title, color = StrongText, fontSize = 16.sp, fontWeight = FontWeight.Normal,
