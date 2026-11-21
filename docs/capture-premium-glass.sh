@@ -22,6 +22,8 @@ snapshot() {
     adb shell am force-stop com.google.android.apps.nexuslauncher || true
     adb shell am force-stop com.mamoro.investments
     adb shell am start -W -n com.mamoro.investments/.ui.PremiumCaptureActivity --es screen "$capture_mode"
+    adb shell am broadcast -a com.android.systemui.demo --es command enter
+    adb shell am broadcast -a com.android.systemui.demo --es command clock --es hhmm 1230
     for capture_attempt in 1 2 3 4 5; do
         sleep 2
         adb shell uiautomator dump /sdcard/premium-glass-ui.xml
