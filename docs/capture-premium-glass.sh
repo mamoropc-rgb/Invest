@@ -69,4 +69,8 @@ adb shell wm density 480
 adb shell settings put system font_scale 1.5
 snapshot portfolio phone-font-150 'Стоимость портфеля'
 snapshot actions actions-font-150 'Быстрые действия'
+snapshot operations operations-font-150 'История операций'
+snapshot assets assets-font-150 'Мои бумаги'
+snapshot analytics analytics-font-150 'Структура портфеля'
+snapshot more more-font-150 'Связь с Кошельком'
 adb logcat -d > "$capture_dir/logcat.txt"
