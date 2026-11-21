@@ -12,8 +12,8 @@ adb shell am broadcast -a com.android.systemui.demo --es command clock --es hhmm
 adb shell am broadcast -a com.android.systemui.demo --es command battery --es level 100 --es plugged false
 adb shell cmd overlay enable com.android.internal.systemui.navbar.gestural || true
 adb shell settings put system font_scale 1.0
-adb shell settings put system accelerometer_rotation 0
-adb shell settings put system user_rotation 0
+adb shell wm set-fix-to-user-rotation enabled
+adb shell wm set-user-rotation lock 0
 adb shell wm size 1080x2400
 adb shell wm density 480
 
@@ -76,9 +76,9 @@ snapshot more more 'Связь с Кошельком'
 # Set a portrait canvas first, then rotate it to obtain an actual 2560x1600 frame.
 adb shell wm size 1600x2560
 adb shell wm density 240
-adb shell settings put system user_rotation 1
+adb shell wm set-user-rotation lock 1
 snapshot portfolio tablet-landscape 'Стоимость портфеля' 2560 1600
-adb shell settings put system user_rotation 0
+adb shell wm set-user-rotation lock 0
 snapshot portfolio tablet-portrait 'Стоимость портфеля' 1600 2560
 
 adb shell wm size 1080x2400
