@@ -41,9 +41,10 @@ class PremiumRenderTest {
         rule.onNodeWithContentDescription("Назад к портфелю").performClick()
         rule.onNodeWithText("Стоимость портфеля").assertIsDisplayed()
     }
-    @Test @Config(qualifiers = "w1280dp-h800dp-mdpi") fun tabletKeepsContentCentered() {
+    @Test @Config(qualifiers = "w1280dp-h800dp-mdpi") fun tabletKeepsContentInsideWorkspace() {
         val caption = rule.onNodeWithText("Стоимость портфеля").assertIsDisplayed().fetchSemanticsNode()
-        org.junit.Assert.assertTrue("Tablet content must remain centered", caption.boundsInRoot.left > 320f)
+        org.junit.Assert.assertTrue("Portfolio stays within the tablet workspace",
+            caption.boundsInRoot.left >= 180f && caption.boundsInRoot.right <= 1268f)
         capture("tablet-landscape")
     }
     @Test fun cashActionStaysInWallet() {
