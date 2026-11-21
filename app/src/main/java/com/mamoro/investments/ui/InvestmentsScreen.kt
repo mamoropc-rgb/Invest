@@ -40,6 +40,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithCache
@@ -58,6 +59,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.DialogWindowProvider
+import androidx.core.view.WindowCompat
 import com.mamoro.investments.BuildConfig
 import com.mamoro.investments.data.IncomeEntity
 import com.mamoro.investments.data.InvestmentsRepository
@@ -174,10 +177,11 @@ internal fun InvestmentDashboard(
             sheetState = quickSheet,
             sheetMaxWidth = GlassSizes.maxContentWidth,
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
-            containerColor = Color.Transparent, tonalElevation = 0.dp,
+            containerColor = Color.Transparent, contentColor = StrongText, tonalElevation = 0.dp,
             scrimColor = Color.Black.copy(alpha = .58f),
             dragHandle = null
         ) {
+            LightSheetSystemBars()
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
                 .background(Color(0xFA202220)).glassSurface(corner = 28f, warm = true)
                 .drawWithCache {
@@ -231,7 +235,9 @@ internal fun InvestmentDashboard(
     }
 
     if (form != null && state != null) {
-        ModalBottomSheet(onDismissRequest = { form = null; chosenSecurity = null }, containerColor = Color(0xFA202322)) {
+        ModalBottomSheet(onDismissRequest = { form = null; chosenSecurity = null },
+            containerColor = Color(0xFA202322), contentColor = StrongText) {
+            LightSheetSystemBars()
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 InvestmentForm(form!!, state, chosenSecurity, onClose = { form = null; chosenSecurity = null }, vm = vm)
             }
@@ -241,7 +247,9 @@ internal fun InvestmentDashboard(
     if (selectedDetail != null && state != null) {
         val item = state.securities.firstOrNull { it.id == selectedDetail }
         if (item != null) {
-            ModalBottomSheet(onDismissRequest = { selectedDetail = null }, containerColor = Color(0xFF202322)) {
+            ModalBottomSheet(onDismissRequest = { selectedDetail = null },
+                containerColor = Color(0xFF202322), contentColor = StrongText) {
+                LightSheetSystemBars()
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 AssetDetail(item, state, onTrade = { type ->
                     chosenSecurity = item.id
@@ -267,6 +275,18 @@ internal fun InvestmentDashboard(
             },
             dismissButton = { TextButton(onClick = { deleteItem = null }) { Text("Отмена") } }
         )
+    }
+}
+
+/** Material 3 1.3 uses the system theme for dialog bars; this app stays dark. */
+@Composable private fun LightSheetSystemBars() {
+    val view = LocalView.current
+    SideEffect {
+        val window = (view.parent as? DialogWindowProvider)?.window ?: return@SideEffect
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
     }
 }
 
