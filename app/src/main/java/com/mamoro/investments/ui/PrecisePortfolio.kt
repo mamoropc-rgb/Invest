@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
@@ -186,7 +187,6 @@ internal fun DataHistoryChart(points: List<PortfolioHistoryPoint>, modifier: Mod
         }
         return
     }
-    val axisWidth = 71.dp * LocalDensity.current.fontScale
     val minValue = points.minOf { it.valueMinor }.toDouble()
     val maxValue = points.maxOf { it.valueMinor }.toDouble()
     val range = (maxValue-minValue).coerceAtLeast(maxValue*.005).coerceAtLeast(1.0)
@@ -194,14 +194,24 @@ internal fun DataHistoryChart(points: List<PortfolioHistoryPoint>, modifier: Mod
     val step = (ceil(range / 3 / magnitude) * magnitude).coerceAtLeast(1.0)
     val low = (floor((minValue-range*.025)/step)*step).coerceAtLeast(0.0)
     val high = (ceil((maxValue+range*.05)/step)*step).coerceAtLeast(low+step)
+    val axisLabels = remember(low,high) { (4 downTo 0).map { i ->
+        MoneyMath.formatMoney((low+(high-low)*i/4).roundToLong()).removeSuffix(" ₽")
+    } }
+    val axisStyle = LocalTextStyle.current.copy(color = SoftText, fontSize = 14.sp, lineHeight = 16.sp)
+    val textMeasurer = rememberTextMeasurer()
+    val axisWidth = if (axes) with(LocalDensity.current) {
+        maxOf(71.dp, axisLabels.maxOf { label ->
+            textMeasurer.measure(label, style = axisStyle, maxLines = 1, softWrap = false).size.width
+        }.toDp() + 13.dp)
+    } else 0.dp
     val date = remember { DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("ru-RU")) }
     Column(modifier.padding(top = if (axes) 4.dp else 8.dp).semantics { contentDescription = "История стоимости: ${points.size} наблюдений" }) {
         Row(Modifier.weight(1f)) {
             if (axes) BoxWithConstraints(Modifier.width(axisWidth).fillMaxHeight().padding(end = 11.dp)) {
                 val lineHeight = with(LocalDensity.current) { 16.sp.toDp() }
-                for (i in 4 downTo 0) Text(MoneyMath.formatMoney((low+(high-low)*i/4).roundToLong()).removeSuffix(" ₽"),
-                    color = SoftText, fontSize = 14.sp, lineHeight = 16.sp, maxLines = 1,
-                    modifier = Modifier.align(Alignment.TopEnd).offset(y = maxHeight*(4-i)/4-lineHeight/2))
+                axisLabels.forEachIndexed { index,label -> Text(label,
+                    style = axisStyle, maxLines = 1, softWrap = false, textAlign = TextAlign.End,
+                    modifier = Modifier.fillMaxWidth().align(Alignment.TopEnd).offset(y = maxHeight*index/4-lineHeight/2)) }
             }
             Canvas(Modifier.weight(1f).fillMaxHeight().drawWithCache {
                 val first = points.first().time
