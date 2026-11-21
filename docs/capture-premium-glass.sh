@@ -10,7 +10,7 @@ trap 'adb logcat -d > "$capture_dir/logcat.txt" || true' EXIT
 adb install -r "$capture_apk" </dev/null
 adb shell settings put global sysui_demo_allowed 1
 adb shell am broadcast -a com.android.systemui.demo --es command enter
-adb shell am broadcast -a com.android.systemui.demo --es command clock --es hhmm 1230
+adb shell am broadcast -a com.android.systemui.demo --es command clock --es hhmm 1024
 adb shell am broadcast -a com.android.systemui.demo --es command battery --es level 100 --es plugged false
 adb shell cmd overlay enable com.android.internal.systemui.navbar.gestural || true
 adb shell settings put system font_scale 1.0
@@ -26,7 +26,7 @@ snapshot() {
     adb shell am force-stop com.mamoro.investments
     adb shell am start -W -n com.mamoro.investments/.ui.PremiumCaptureActivity --es screen "$capture_mode"
     adb shell am broadcast -a com.android.systemui.demo --es command enter
-    adb shell am broadcast -a com.android.systemui.demo --es command clock --es hhmm 1230
+    adb shell am broadcast -a com.android.systemui.demo --es command clock --es hhmm 1024
     for capture_attempt in 1 2 3 4 5; do
         sleep 2
         adb shell uiautomator dump /sdcard/premium-glass-ui.xml
@@ -80,7 +80,7 @@ if [[ "$capture_device" != phone ]]; then
 # The workflow uses a native 2560x1600 tablet profile, avoiding the phone AVD's
 # forced-width cap. Capture both logical orientations without scaling any PNG.
 adb shell wm size 2560x1600
-adb shell wm density 240
+adb shell wm density 320
 snapshot portfolio tablet-landscape 'Стоимость портфеля' 2560 1600
 adb shell wm size 1600x2560
 snapshot portfolio tablet-portrait 'Стоимость портфеля' 1600 2560
