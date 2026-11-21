@@ -59,6 +59,6 @@ private fun referenceState(): InvestmentsRepository.DashboardState {
         IncomeEntity("coupon-ofz", "ofz", "COUPON", 156000, "", at(1,11,20))
     )
     // These presentation numbers intentionally reproduce the mockup; they aren't financial test inputs.
-    val summary = PortfolioMath.Summary(positions, 148_230_000, 1_256_000, 11_983_000, 5_624_000, 2_486_000)
+    val summary = PortfolioMath.Summary(positions, 148_230_000, 1_256_000, 11_974_000, 5_624_000, 2_486_000)
     return InvestmentsRepository.DashboardState(securities, trades, income, emptyList(), summary, 0)
 }
