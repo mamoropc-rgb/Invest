@@ -88,16 +88,24 @@ fun Modifier.glassSurface(corner: Float = 21f, warm: Boolean = false): Modifier 
         val w = size.width
         val h = size.height
         val base = Brush.verticalGradient(
-            0f to Color(0xDF363838), .38f to Color(0xE0222525),
+            0f to Color(0xDF303232), .38f to Color(0xE0222525),
             .78f to Color(0xEE202322), 1f to Color(0xDF323336)
         )
         val topLight = Brush.radialGradient(
-            listOf(Color(0x53FFFFFF), Color(0x0EFFFFFF), Color.Transparent),
-            Offset(w * .08f, -h * .3f), w * .57f
+            if (warm && h > 140.dp.toPx()) listOf(Color(0x38FFD8BA), Color(0x0CFFD8BA), Color.Transparent)
+            else listOf(Color(0x53FFFFFF), Color(0x0EFFFFFF), Color.Transparent),
+            Offset(w * .08f, if (warm) -minOf(h * .3f, 24.dp.toPx()) else -h * .3f), w * .57f
         )
         val amber = Brush.radialGradient(
-            listOf(OrangeLight.copy(alpha = if (warm) .22f else .06f), Color.Transparent),
+            listOf(Color(0xFFF0B68F).copy(alpha = if (warm) .30f else .14f), Color.Transparent),
             Offset(w * .95f, h * 1.25f), w * .5f
+        )
+        val reflectionCenter = Offset(w * .80f, h * .18f)
+        val reflectionRadius = w * .35f
+        val warmReflection = Brush.radialGradient(
+            0f to Color(0xFFE6915F).copy(alpha = .36f),
+            .6f to Color(0xFFE6915F).copy(alpha = .25f), 1f to Color.Transparent,
+            center = reflectionCenter, radius = reflectionRadius
         )
         val rim = Brush.linearGradient(
             listOf(Color(0xC5F9E8D6), Color(0x52F0F0E8), Color(0x19FFFFFF), Color(0x8CCBB59C)),
@@ -110,6 +118,9 @@ fun Modifier.glassSurface(corner: Float = 21f, warm: Boolean = false): Modifier 
             drawRoundRect(base, cornerRadius = r)
             drawRoundRect(topLight, cornerRadius = r)
             drawRoundRect(amber, cornerRadius = r)
+            if (warm) scale(1f, .65f, pivot = reflectionCenter) {
+                drawCircle(warmReflection, reflectionRadius, reflectionCenter)
+            }
             // Wide dim bevel, then the brighter outside edge and the upper reflection.
             val inset = 1.8.dp.toPx()
             drawRoundRect(Color.White.copy(alpha = .035f), Offset(inset, inset),
