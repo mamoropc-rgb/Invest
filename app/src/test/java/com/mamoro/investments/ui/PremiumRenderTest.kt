@@ -1,6 +1,15 @@
 package com.mamoro.investments.ui
 
-import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.*
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import com.mamoro.investments.ui.theme.InvestmentsTheme
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import org.junit.Rule
@@ -46,6 +55,26 @@ class PremiumRenderTest {
         org.junit.Assert.assertTrue("Portfolio stays within the tablet workspace",
             caption.boundsInRoot.left >= 180f && caption.boundsInRoot.right <= 1268f)
         capture("tablet-landscape")
+        // A complete amount must remain visible, including its final zeroes, at 150% font scale.
+        rule.runOnUiThread {
+            rule.activity.setContent {
+                InvestmentsTheme {
+                    CompositionLocalProvider(LocalDensity provides Density(1f,1.5f)) {
+                        Box(Modifier.fillMaxSize().padding(16.dp)) {
+                            DataHistoryChart(listOf(PortfolioHistoryPoint(0L,136_000_000L),
+                                PortfolioHistoryPoint(86_400_000L,148_000_000L)),
+                                Modifier.width(420.dp).height(250.dp), axes = true)
+                        }
+                    }
+                }
+            }
+        }
+        rule.waitForIdle()
+        val layouts = mutableListOf<TextLayoutResult>()
+        rule.onNodeWithText("1\u00a0520\u00a0000").performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        val result = layouts.single()
+        capture("axis-font-150")
+        org.junit.Assert.assertFalse("Axis values must show every digit at 150%: size=${result.size} constraints=${result.layoutInput.constraints} widthOverflow=${result.didOverflowWidth} heightOverflow=${result.didOverflowHeight} lineEnd=${result.getLineEnd(0)} text=${result.layoutInput.text}", result.hasVisualOverflow)
     }
     @Test fun cashActionStaysInWallet() {
         rule.onNodeWithText("Быстрое действие").performClick()
