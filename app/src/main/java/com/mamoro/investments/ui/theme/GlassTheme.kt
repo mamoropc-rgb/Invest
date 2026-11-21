@@ -188,22 +188,22 @@ fun GlassActionButton(
             .drawWithCache {
                 val middle = Offset(size.width / 2f, size.height / 2f)
                 val radius = size.width * .62f
-                val bloom = Brush.radialGradient(listOf(Orange.copy(alpha = .52f), Orange.copy(alpha = .17f), Color.Transparent), middle, radius)
+                val bloom = Brush.radialGradient(listOf(Orange.copy(alpha = .68f), Orange.copy(alpha = .22f), Color.Transparent), middle, radius)
                 onDrawBehind { scale(1f, .30f, pivot = middle) { drawCircle(bloom, radius, middle) } }
             }
             .shadow(14.dp, shape, ambientColor = Orange.copy(alpha = .25f), spotColor = Orange.copy(alpha = .5f))
             .clip(shape)
             .background(Brush.verticalGradient(
-                0f to Color(0xFFFFDE93), .22f to Color(0xFFFFAF40),
+                0f to Color(0xFFFFC76D), .22f to Color(0xFFFFAB34),
                 .56f to Color(0xFFFF9100), .84f to Color(0xFFFF9200), 1f to Color(0xFFFFBA30)
             ))
             .drawWithCache {
                 val edge = Brush.verticalGradient(listOf(Color(0xFFFFE4AD), Color(0x35FFFFFF), OrangeLight))
                 onDrawBehind {
                     drawRoundRect(edge, cornerRadius = CornerRadius(21.dp.toPx()), style = Stroke(1.5.dp.toPx()))
-                    val glint = Offset(size.width * .12f, 0f)
-                    scale(1f, .12f, pivot = glint) {
-                        drawCircle(Brush.radialGradient(listOf(Color(0xBFFFFFFF), Color.Transparent), glint, size.width * .45f),
+                    val glint = Offset(size.width * .10f, size.height * .06f)
+                    scale(1f, .20f, pivot = glint) {
+                        drawCircle(Brush.radialGradient(listOf(Color(0xD9FFFFFF), Color.Transparent), glint, size.width * .45f),
                             size.width * .45f, glint)
                     }
                 }
