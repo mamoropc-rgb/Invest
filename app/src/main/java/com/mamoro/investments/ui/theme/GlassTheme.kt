@@ -88,31 +88,35 @@ fun Modifier.glassSurface(corner: Float = 21f, warm: Boolean = false): Modifier 
         val w = size.width
         val h = size.height
         val base = Brush.verticalGradient(
-            0f to Color(0xDF303232), .38f to Color(0xE0222525),
-            .78f to Color(0xEE202322), 1f to Color(0xDF323336)
+            0f to Color(0xED2B2E30), .28f to Color(0xE126292B),
+            .72f to Color(0xEB191C1F), 1f to Color(0xE32C2F32)
         )
         val topLight = Brush.radialGradient(
-            if (warm && h > 140.dp.toPx()) listOf(Color(0x38FFD8BA), Color(0x0CFFD8BA), Color.Transparent)
-            else listOf(Color(0x53FFFFFF), Color(0x0EFFFFFF), Color.Transparent),
-            Offset(w * .08f, if (warm) -minOf(h * .3f, 24.dp.toPx()) else -h * .3f), w * .57f
+            if (warm) listOf(Color(0x6BFFE0C8), Color(0x18FFE0C8), Color.Transparent)
+            else listOf(Color(0x70FFFFFF), Color(0x15FFFFFF), Color.Transparent),
+            Offset(w * .08f, -minOf(h * .35f, 24.dp.toPx())), w * .35f
         )
         val amber = Brush.radialGradient(
-            listOf(Color(0xFFF0B68F).copy(alpha = if (warm) .30f else .14f), Color.Transparent),
-            Offset(w * .95f, h * 1.25f), w * .5f
+            listOf(Color(0xFFF0B68F).copy(alpha = if (warm) .20f else .07f), Color.Transparent),
+            Offset(w * .98f, h * 1.25f), w * .44f
         )
         val reflectionCenter = Offset(w * .80f, h * .18f)
         val reflectionRadius = w * .28f
         val warmReflection = Brush.radialGradient(
-            0f to Color(0xFFE6915F).copy(alpha = .36f),
-            .6f to Color(0xFFE6915F).copy(alpha = .25f), 1f to Color.Transparent,
+            0f to Color(0xFFE6915F).copy(alpha = .48f),
+            .45f to Color(0xFFE6915F).copy(alpha = .25f), 1f to Color.Transparent,
             center = reflectionCenter, radius = reflectionRadius
         )
         val rim = Brush.linearGradient(
-            listOf(Color(0xC5F9E8D6), Color(0x52F0F0E8), Color(0x19FFFFFF), Color(0x8CCBB59C)),
+            listOf(Color(0xC9FFFFFF), Color(0x58E9EBEF), Color(0x18FFFFFF), Color(0x6B9D9992)),
             Offset.Zero, Offset(w * .7f, h)
         )
         val topEdge = Brush.horizontalGradient(
             listOf(Color.Transparent, Color(0xAFFFFFF4), Color(0x20FFFFFF), Color.Transparent)
+        )
+        val sheen = Brush.verticalGradient(
+            0f to Color(0x2FFFFFFF), .045f to Color(0x0CFFFFFF), .22f to Color.Transparent,
+            .8f to Color.Transparent, 1f to Color(0x0FFFFFFF)
         )
         onDrawBehind {
             drawRoundRect(base, cornerRadius = r)
@@ -121,6 +125,7 @@ fun Modifier.glassSurface(corner: Float = 21f, warm: Boolean = false): Modifier 
             if (warm) scale(1f, .35f, pivot = reflectionCenter) {
                 drawCircle(warmReflection, reflectionRadius, reflectionCenter)
             }
+            drawRoundRect(sheen, cornerRadius = r)
             // Wide dim bevel, then the brighter outside edge and the upper reflection.
             val inset = 1.8.dp.toPx()
             drawRoundRect(Color.White.copy(alpha = .035f), Offset(inset, inset),
@@ -151,28 +156,27 @@ fun GlassCard(
     )
 }
 
-/** Same diagonal lighting as the screen interiors, without the presentation's phone frame. */
+/** Soft diagonal lighting, with no hard-edged stripe or presentation phone frame. */
 fun Modifier.premiumBackdrop(): Modifier = drawWithCache {
     val w = size.width
     val h = size.height
     val base = Brush.linearGradient(
-        listOf(Color(0xFF242625), Color(0xFF111313), Color(0xFF191B1A), Color(0xFF101212)),
+        listOf(Color(0xFF1D1F21), Color(0xFF111315), Color(0xFF191B1D), Color(0xFF141618)),
         Offset.Zero, Offset(w, h)
     )
-    val reflection = Path().apply {
-        moveTo(w * .83f, 0f); lineTo(w, 0f); lineTo(w, h * .08f)
-        lineTo(0f, h * .67f); lineTo(0f, h * .51f); close()
-    }
-    val light = Brush.linearGradient(listOf(Color(0x0DFFFFFF), Color(0x02FFFFFF), Color.Transparent),
-        Offset(w, 0f), Offset(w * .15f, h * .6f))
-    val bottomGlow = Brush.radialGradient(listOf(Color(0x70B56B36), Color(0x0D7B421D), Color.Transparent),
-        Offset(w * 1.13f, h * .96f), w * .9f)
-    val upperGlow = Brush.radialGradient(listOf(Color(0x0FFFFFFF), Color.Transparent),
+    val light = Brush.linearGradient(
+        0f to Color.Transparent, .23f to Color.Transparent, .30f to Color(0x12FFFFFF),
+        .40f to Color(0x08FFFFFF), .48f to Color.Transparent, 1f to Color.Transparent,
+        start = Offset.Zero, end = Offset(w, h * .35f)
+    )
+    val bottomGlow = Brush.radialGradient(listOf(Color(0x6AB56B36), Color(0x177B421D), Color.Transparent),
+        Offset(w * 1.10f, h * .95f), w * .88f)
+    val upperGlow = Brush.radialGradient(listOf(Color(0x1AFFFFFF), Color.Transparent),
         Offset(w * .65f, 0f), w * .85f)
     val middleGlow = Brush.radialGradient(listOf(Color(0x1788512D), Color.Transparent),
         Offset(w * .1f, h * .32f), w * .75f)
     onDrawBehind {
-        drawRect(base); drawPath(reflection, light); drawRect(bottomGlow); drawRect(upperGlow); drawRect(middleGlow)
+        drawRect(base); drawRect(light); drawRect(bottomGlow); drawRect(upperGlow); drawRect(middleGlow)
     }
 }
 
@@ -199,23 +203,23 @@ fun GlassActionButton(
             .drawWithCache {
                 val middle = Offset(size.width / 2f, size.height / 2f)
                 val radius = size.width * .62f
-                val bloom = Brush.radialGradient(listOf(Orange.copy(alpha = .68f), Orange.copy(alpha = .22f), Color.Transparent), middle, radius)
+                val bloom = Brush.radialGradient(listOf(Orange.copy(alpha = .85f), Orange.copy(alpha = .28f), Color.Transparent), middle, radius)
                 onDrawBehind { scale(1f, .30f, pivot = middle) { drawCircle(bloom, radius, middle) } }
             }
             .shadow(14.dp, shape, ambientColor = Orange.copy(alpha = .25f), spotColor = Orange.copy(alpha = .5f))
             .clip(shape)
             .background(Brush.verticalGradient(
-                0f to Color(0xFFFFC76D), .22f to Color(0xFFFFAB34),
-                .56f to Color(0xFFFF9100), .84f to Color(0xFFFF9200), 1f to Color(0xFFFFBA30)
+                0f to Color(0xFFFFDA91), .22f to Color(0xFFFFAB34),
+                .56f to Color(0xFFFF9100), .84f to Color(0xFFFF9200), 1f to Color(0xFFFFC346)
             ))
             .drawWithCache {
-                val edge = Brush.verticalGradient(listOf(Color(0xFFFFE4AD), Color(0x35FFFFFF), OrangeLight))
+                val edge = Brush.verticalGradient(listOf(Color(0xFFFFF4D9), Color(0x35FFFFFF), Color(0xFFFFD37B)))
                 onDrawBehind {
                     drawRoundRect(edge, cornerRadius = CornerRadius(21.dp.toPx()), style = Stroke(1.5.dp.toPx()))
                     val glint = Offset(size.width * .10f, size.height * .06f)
-                    scale(1f, .20f, pivot = glint) {
-                        drawCircle(Brush.radialGradient(listOf(Color(0xD9FFFFFF), Color.Transparent), glint, size.width * .45f),
-                            size.width * .45f, glint)
+                    scale(1f, .12f, pivot = glint) {
+                        drawCircle(Brush.radialGradient(listOf(Color.White, Color.Transparent), glint, size.width * .65f),
+                            size.width * .65f, glint)
                     }
                 }
             }
