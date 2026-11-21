@@ -72,13 +72,12 @@ snapshot assets assets 'Мои бумаги'
 snapshot analytics analytics 'Структура портфеля'
 snapshot more more 'Связь с Кошельком'
 
-# Android 11 caps each forced dimension at twice the AVD's natural dimension.
-# Set a portrait canvas first, then rotate it to obtain an actual 2560x1600 frame.
-adb shell wm size 1600x2560
+# The workflow uses a native 2560x1600 tablet profile, avoiding the phone AVD's
+# forced-width cap. Capture both logical orientations without scaling any PNG.
+adb shell wm size 2560x1600
 adb shell wm density 240
-adb shell wm set-user-rotation lock 1
 snapshot portfolio tablet-landscape 'Стоимость портфеля' 2560 1600
-adb shell wm set-user-rotation lock 0
+adb shell wm size 1600x2560
 snapshot portfolio tablet-portrait 'Стоимость портфеля' 1600 2560
 
 adb shell wm size 1080x2400

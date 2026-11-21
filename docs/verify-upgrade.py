@@ -19,9 +19,10 @@ package = 'com.mamoro.investments'
 db_dir = f'/data/user/0/{package}/databases'
 
 def command(*items, timeout=120):
-    result = subprocess.run(list(map(str, items)), check=True, stdout=subprocess.PIPE,
+    result = subprocess.run(list(map(str, items)), stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True, timeout=timeout)
     print(result.stdout.strip(), flush=True)
+    result.check_returncode()
     return result.stdout.strip().replace('\r', '')
 
 def adb(*items):
@@ -46,9 +47,18 @@ def certificate(apk):
 
 old_cert, new_cert = certificate(args.old_apk), certificate(args.new_apk)
 assert old_cert == new_cert, 'Release signing certificate changed'
-adb('root')
-adb('wait-for-device')
-assert adb('shell', 'id', '-u') == '0', 'The emulator must support adb root'
+root_ready = False
+for attempt in range(3):
+    # adbd restarts during root activation and can disconnect before replying.
+    result = subprocess.run(['adb','root'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                            text=True, timeout=30)
+    print(result.stdout.strip(), flush=True)
+    adb('wait-for-device')
+    if adb('shell', 'id', '-u') == '0':
+        root_ready = True
+        break
+    time.sleep(1)
+assert root_ready, 'The disposable emulator must support adb root'
 adb('install', args.old_apk.resolve())
 adb('shell', 'am', 'start', '-W', '-n', f'{package}/.MainActivity')
 for attempt in range(20):
