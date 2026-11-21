@@ -71,7 +71,7 @@ import java.util.Date
 import java.util.Locale
 
 private val labels = listOf("Портфель", "Активы", "Операции", "Аналитика", "Ещё")
-private val tabIcons = listOf(Icons.Rounded.BarChart, Icons.Rounded.Layers, Icons.Rounded.SwapHoriz, Icons.Rounded.PieChartOutline, Icons.Rounded.MoreHoriz)
+private val tabIcons = listOf(Icons.Rounded.BarChart, Icons.Outlined.Layers, Icons.Rounded.SwapHoriz, Icons.Rounded.PieChartOutline, Icons.Rounded.MoreHoriz)
 
 @Composable
 fun InvestmentsScreen(vm: InvestmentsViewModel) {
@@ -179,10 +179,10 @@ internal fun InvestmentDashboard(
         ) {
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
                 .background(Color(0xFA202220)).glassSurface(corner = 28f, warm = true).verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, end = 16.dp, bottom = 68.dp),
+                .padding(start = 16.dp, end = 16.dp, bottom = 82.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Box(Modifier.fillMaxWidth().height(22.dp), contentAlignment = Alignment.Center) {
-                    Box(Modifier.size(width = 54.dp, height = 5.dp).clip(CircleShape)
+                    Box(Modifier.offset(y = 8.dp).size(width = 54.dp, height = 5.dp).clip(CircleShape)
                         .background(Brush.verticalGradient(listOf(Color(0xFFCFD0CD), Color(0xFF888B87)))))
                 }
                 Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -220,7 +220,7 @@ internal fun InvestmentDashboard(
     }
 
     if (form != null && state != null) {
-        ModalBottomSheet(onDismissRequest = { form = null; chosenSecurity = null }, containerColor = Color(0xF521222C)) {
+        ModalBottomSheet(onDismissRequest = { form = null; chosenSecurity = null }, containerColor = Color(0xFA202322)) {
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 InvestmentForm(form!!, state, chosenSecurity, onClose = { form = null; chosenSecurity = null }, vm = vm)
             }
@@ -230,7 +230,7 @@ internal fun InvestmentDashboard(
     if (selectedDetail != null && state != null) {
         val item = state.securities.firstOrNull { it.id == selectedDetail }
         if (item != null) {
-            ModalBottomSheet(onDismissRequest = { selectedDetail = null }, containerColor = Color(0xFF1E2028)) {
+            ModalBottomSheet(onDismissRequest = { selectedDetail = null }, containerColor = Color(0xFF202322)) {
                 Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 AssetDetail(item, state, onTrade = { type ->
                     chosenSecurity = item.id
@@ -268,9 +268,9 @@ internal fun InvestmentDashboard(
         IconButton(onClick = onMenu, modifier = Modifier.size(48.dp)) {
             Icon(Icons.Rounded.Menu, "Меню действий", tint = StrongText, modifier = Modifier.size(24.dp))
         }
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(20.dp))
         Text("Инвестиции", color = StrongText, fontWeight = FontWeight.Medium,
-            fontSize = 22.sp, modifier = Modifier.weight(1f))
+            fontSize = 20.sp, modifier = Modifier.weight(1f).offset(y = 2.dp))
         IconButton(onClick = onSearch, modifier = Modifier.size(48.dp)) {
             Icon(Icons.Rounded.Search, "Найти бумагу", tint = StrongText, modifier = Modifier.size(24.dp))
         }
@@ -282,6 +282,7 @@ internal fun InvestmentDashboard(
 
 @Composable private fun NavigationGlass(selected: Int, onSelect: (Int) -> Unit) {
     val shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 20.dp, bottomEnd = 20.dp)
+    val largeFont = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.2f
     Box(Modifier.fillMaxWidth().padding(top = 6.dp), contentAlignment = Alignment.Center) {
         BoxWithConstraints(Modifier.widthIn(max = GlassSizes.maxNavigationWidth).fillMaxWidth()
             .shadow(12.dp, shape).clip(shape).glassSurface(corner = 24f)) {
@@ -289,16 +290,23 @@ internal fun InvestmentDashboard(
             val indicator by animateDpAsState(cell * selected, tween(180), label = "navigation-position")
             Box(Modifier.offset { IntOffset(indicator.roundToPx(), 0) }.width(cell).height(68.dp)
                 .background(Brush.radialGradient(listOf(Orange.copy(alpha = .19f), Color.Transparent))))
-            Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 9.dp)) {
+            Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 9.dp, bottom = 20.dp)) {
                 labels.forEachIndexed { index, title ->
                     val tint by animateColorAsState(if (index == selected) Orange else StrongText,
                         tween(160), label = "navigation-tint")
-                    Column(Modifier.weight(1f).heightIn(min = 58.dp)
+                    Column(Modifier.weight(1f).heightIn(min = if (largeFont) 76.dp else 58.dp)
                         .clip(RoundedCornerShape(15.dp)).glassClick { onSelect(index) }
-                        .padding(vertical = 5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(tabIcons[index], null, tint = tint, modifier = Modifier.size(24.dp))
-                        Spacer(Modifier.height(4.dp))
-                        Text(title, color = tint, fontSize = 10.sp, maxLines = 1)
+                        .padding(top = if (largeFont) 5.dp else 1.dp, bottom = if (largeFont) 5.dp else 9.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.size(28.dp), contentAlignment = Alignment.Center) {
+                            if (index == 0) CategoryGlyph("Акции", tint)
+                            else Icon(tabIcons[index], null, tint = tint, modifier = Modifier.size(24.dp))
+                        }
+                        Spacer(Modifier.height(2.dp))
+                        Text(title, color = tint, fontSize = 10.sp, lineHeight = 12.sp,
+                            maxLines = if (largeFont) 2 else 1,
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                            overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -364,7 +372,8 @@ internal fun InvestmentDashboard(
                 if (summary.couponsMinor != 0L) "Получено" else "Нет выплат", onCategory)
         }
         item {
-            GlassActionButton("Быстрое действие", onClick = onQuick, modifier = Modifier.fillMaxWidth())
+            GlassActionButton("Быстрое действие", onClick = onQuick,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
         }
         item { Spacer(Modifier.height(28.dp)) }
         if (state.securities.isEmpty()) {
@@ -395,7 +404,7 @@ private fun categoryPerformance(summary: PortfolioMath.Summary, kind: String): S
 
 @Composable private fun PortfolioHero(summary: PortfolioMath.Summary) {
     val profit = summary.unrealizedMinor + summary.realizedMinor + summary.dividendsMinor + summary.couponsMinor
-    Box(Modifier.fillMaxWidth().heightIn(min = 160.dp).padding(horizontal = 12.dp)) {
+    Box(Modifier.fillMaxWidth().heightIn(min = 162.dp).padding(horizontal = 12.dp)) {
         Box(Modifier.align(Alignment.BottomEnd).width(145.dp).height(95.dp)
             .background(Brush.radialGradient(listOf(Orange.copy(alpha = .10f), Color.Transparent)))) {
             Text("История стоимости\nпока недоступна", color = SoftText.copy(alpha = .68f),
@@ -446,7 +455,7 @@ private fun signedMoney(minor: Long) = (if (minor >= 0) "+" else "−") + MoneyM
 ) {
     val shape = RoundedCornerShape(21.dp)
     val largeFont = androidx.compose.ui.platform.LocalDensity.current.fontScale > 1.2f
-    Row(Modifier.fillMaxWidth().heightIn(min = 62.dp).shadow(5.dp, shape)
+    Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).shadow(5.dp, shape)
         .clip(shape).glassSurface().glassClick(onClick)
         .drawWithCache {
             val localGlow = Brush.radialGradient(listOf(tint.copy(alpha = .10f), Color.Transparent),
@@ -636,8 +645,8 @@ private data class Operation(
 
 @Composable private fun HistoryTopBar(onBack: () -> Unit, horizontalInset: androidx.compose.ui.unit.Dp) {
     Box(Modifier.fillMaxWidth().height(56.dp)) {
-        Text("История операций", color = StrongText, fontSize = 22.sp, fontWeight = FontWeight.Medium,
-            modifier = Modifier.align(Alignment.Center))
+        Text("История операций", color = StrongText, fontSize = 20.sp, fontWeight = FontWeight.Medium,
+            modifier = Modifier.align(Alignment.Center).offset(y = 2.dp))
         IconButton(onClick = onBack, modifier = Modifier.align(Alignment.CenterStart)
             .padding(start = horizontalInset - 4.dp).size(48.dp)) {
             Icon(Icons.Rounded.ArrowBack, "Назад к портфелю", tint = StrongText, modifier = Modifier.size(24.dp))
@@ -672,7 +681,7 @@ private data class Operation(
     val dateFormat = remember { java.time.format.DateTimeFormatter.ofPattern("d MMM", Locale.forLanguageTag("ru-RU")) }
     val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.forLanguageTag("ru-RU")) }
     LazyColumn(Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = horizontalInset, end = horizontalInset, top = 22.dp, bottom = 28.dp),
+        contentPadding = PaddingValues(start = horizontalInset, end = horizontalInset, top = 18.dp, bottom = 28.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -683,7 +692,7 @@ private data class Operation(
         }
         if (visible.isEmpty()) item { EmptyState("История пуста", "Добавьте покупку, продажу или выплату.") }
         items(groups.entries.toList(), key = { "date-${it.key}" }) { (date, list) ->
-            Column(Modifier.fillMaxWidth().animateItem().padding(top = 10.dp)) {
+            Column(Modifier.fillMaxWidth().animateItem().padding(top = 5.dp, bottom = 8.dp)) {
                 val prefix = when (date) { today -> "Сегодня, "; today.minusDays(1) -> "Вчера, "; else -> "" }
                 Text(prefix + date.format(dateFormat) + if (date.year != today.year) " ${date.year}" else "",
                     color = StrongText, fontSize = 15.sp, modifier = Modifier.padding(start = 4.dp))
