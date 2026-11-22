@@ -8,6 +8,7 @@ import re
 import sqlite3
 import subprocess
 import time
+import xml.etree.ElementTree as ET
 from upgrade_policy import verify_preservation
 
 parser = argparse.ArgumentParser()
@@ -60,6 +61,23 @@ for attempt in range(3):
         break
     time.sleep(1)
 assert root_ready, 'The disposable emulator must support adb root'
+
+def ui_node(text=None, class_name=None, attempts=5):
+    for attempt in range(attempts):
+        adb('shell','uiautomator','dump','/sdcard/invest-upgrade-ui.xml')
+        tree = ET.fromstring(adb('shell','cat','/sdcard/invest-upgrade-ui.xml'))
+        for node in tree.iter('node'):
+            if (text is None or node.get('text') == text) and (class_name is None or node.get('class') == class_name):
+                bounds = list(map(int, re.findall(r'\d+', node.get('bounds',''))))
+                if len(bounds) == 4 and bounds[2] > bounds[0] and bounds[3] > bounds[1]:
+                    return bounds
+        time.sleep(1)
+    raise AssertionError('Expected UI control was not visible: '+str(text or class_name))
+
+def tap_ui(**match):
+    left, top, right, bottom = ui_node(**match)
+    adb('shell','input','tap',(left+right)//2,(top+bottom)//2)
+
 adb('install', args.old_apk.resolve())
 adb('shell', 'am', 'start', '-W', '-n', f'{package}/.MainActivity')
 for attempt in range(20):
@@ -68,24 +86,48 @@ for attempt in range(20):
         break
     time.sleep(1)
 assert exists, 'Old app did not create its database'
+token_seeded = old_manifest['code'] >= 7
+if token_seeded:
+    # Exercise the old signed Release UI. No API request is made by saving this fake credential.
+    tap_ui(text='Ещё')
+    tap_ui(text='Подключить')
+    tap_ui(class_name='android.widget.EditText')
+    adb('shell','input','text','emulator-only-upgrade-credential')
+    adb('shell','input','keyevent','4')
+    tap_ui(text='Сохранить')
+    ui_node(text='Токен сохранён на устройстве')
 adb('shell', 'am', 'force-stop', package)
+preferences = f'/data/user/0/{package}/shared_prefs/t_invest_connection.xml'
+token_before = adb('shell','cat',preferences) if token_seeded else None
+if token_seeded:
+    assert 'emulator-only-upgrade-credential' not in token_before, 'Credential must be encrypted'
 adb('pull', db_dir, args.output / 'before')
 database = next((args.output / 'before').rglob('investments_v1.db'))
 connection = sqlite3.connect(database)
 now = int(time.time() * 1000)
+trade_time = now - 30 * 86_400_000 if token_seeded else now
 connection.execute('INSERT INTO securities VALUES (?,?,?,?,?,?,?)',
-                   ('qa-security', 'Проверка обновления', 'QA', 'STOCK', 12000, now, 0))
+                   ('qa-security', 'Проверка обновления', 'QA', 'BOND' if token_seeded else 'STOCK', 12000, now, 0))
 connection.execute('INSERT INTO wallet_accounts VALUES (?,?,?,?,?)',
                    ('qa-broker', 'Тестовый счёт', 'RUB', 1000000, now))
 connection.execute('INSERT INTO trades VALUES (?,?,?,?,?,?,?,?,?)',
-                   ('qa-trade','qa-security','BUY',1000000,10000,100,now,'qa-broker',0))
+                   ('qa-trade','qa-security','BUY',1000000,10000,100,trade_time,'qa-broker',0))
 connection.execute('INSERT INTO income VALUES (?,?,?,?,?,?,?,?)',
-                   ('qa-income','qa-security','DIVIDEND',500,'Проверка сохранения',now,'qa-broker',0))
+                   ('qa-income','qa-security','COUPON' if token_seeded else 'DIVIDEND',500,'Проверка сохранения',now,'qa-broker',0))
+if connection.execute('PRAGMA user_version').fetchone()[0] == 2:
+    day = now // 86_400_000
+    connection.execute('INSERT INTO bond_reference VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+        ('qa-security','qa-bond-uid','','QA-ISIN','QA','TQOB','Проверка обновления','RUB','1000','1.50',
+         day-365,day-364,day+365,2,0,0,0,now,day-365,day+365))
+    connection.execute('INSERT INTO bond_coupons VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+        ('qa-security','qa-bond-uid/1',1,day-1,day-3,day-185,day-2,'5.00','RUB','COUPON_TYPE_CONSTANT',1))
+    connection.execute('INSERT INTO bond_trade_dates VALUES (?,?,?)',('qa-trade',day-30,day-29))
+    connection.execute('INSERT INTO bond_coupon_receipts VALUES (?,?,?)',('qa-security','qa-bond-uid/1','qa-income'))
 payload = json.dumps(dict(schema_version=1, event_id='qa-event', operation_id='qa-trade',
                          source_app=package, event_kind='TRADE_UPSERT', security_id='qa-security',
                          ticker='QA', side='BUY', quantity_micros=1000000, unit_price_minor=10000,
                          fee_minor=100, cash_delta_minor=-10100, currency='RUB',
-                         wallet_account_id='qa-broker', happened_at=now))
+                         wallet_account_id='qa-broker', happened_at=trade_time))
 connection.execute('INSERT INTO sync_events VALUES (?,?,?,?,?,?)',
                    (1,'qa-event','qa-trade','TRADE_UPSERT',payload,now))
 connection.execute('INSERT OR REPLACE INTO sync_state VALUES (?,?)', (1,0))
@@ -116,6 +158,11 @@ install_result = adb('install','-r',args.new_apk.resolve())
 assert 'Success' in install_result, 'Update installation failed'
 adb('shell','am','start','-W','-n',f'{package}/.MainActivity')
 time.sleep(3)
+if token_seeded:
+    tap_ui(text='Ещё')
+    ui_node(text='Токен сохранён на устройстве')
+    ui_node(text='Заменить токен')
+    assert adb('shell','cat',preferences) == token_before, 'Saved encrypted credential changed'
 with (args.output / 'updated-release.png').open('wb') as output:
     subprocess.run(['adb','exec-out','screencap','-p'],check=True,stdout=output)
 adb('shell','am','force-stop',package)
@@ -124,6 +171,7 @@ after = snapshot(next((args.output/'after').rglob('investments_v1.db')))
 preservation = verify_preservation(before, after)
 report = dict(installed_over_previous=True, **preservation,
               certificate_sha256=new_cert, old_version=old_manifest, new_version=new_manifest,
+              saved_token_preserved=token_seeded,
               old_apk_sha256=hashlib.sha256(args.old_apk.read_bytes()).hexdigest(),
               new_apk_sha256=hashlib.sha256(args.new_apk.read_bytes()).hexdigest(),
               row_counts={name:len(rows) for name,rows in after['rows'].items()})

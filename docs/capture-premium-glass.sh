@@ -89,6 +89,21 @@ assert result.get('success'), result
 assert result['round_trip'] and result['encrypted_at_rest'] and result['cleared'], result
 print('Actual Android Keystore round trip passed')
 PYKEYSTORE
+adb shell am force-stop com.mamoro.investments
+adb shell run-as com.mamoro.investments rm -f files/tinvest-network-check.json
+adb shell am start -W -n com.mamoro.investments/.ui.PremiumCaptureActivity --es screen bond-network-check
+for capture_attempt in $(seq 1 45); do
+    if adb shell run-as com.mamoro.investments test -f files/tinvest-network-check.json; then break; fi
+    sleep 1
+done
+adb exec-out run-as com.mamoro.investments cat files/tinvest-network-check.json > "$capture_dir/tinvest-network-check.json"
+python3 - "$capture_dir/tinvest-network-check.json" <<'PYTLS'
+import json, sys
+result = json.load(open(sys.argv[1]))
+assert result.get('success'), result
+assert result['api_root_trusted'] and result['other_hosts_reject_root'] and result['cleartext_blocked'], result
+print('Native Android per-host certificate policy passed:', result)
+PYTLS
 fi
 
 if [[ "$capture_device" != phone ]]; then
