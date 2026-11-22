@@ -9,22 +9,55 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.net.URL
 import java.time.LocalDate
 import java.time.ZoneOffset
 import kotlin.coroutines.coroutineContext
+import javax.net.ssl.SSLException
 
 /** Deliberately allowlisted information-only methods. No account, order or transfer endpoints. */
 enum class TInvestMethod(val rpc: String) { SEARCH("FindInstrument"), BOND("BondBy"), COUPONS("GetBondCoupons") }
 fun interface TInvestTransport {
     fun post(method: TInvestMethod, token: String, request: JSONObject): JSONObject
 }
-private class TInvestApiException(message: String) : IOException(message)
-class TInvestHttpTransport : TInvestTransport {
+internal enum class TInvestFailure(val userMessage: String) {
+    AUTH("Токен API недействителен или отозван. Замените токен"),
+    ACCESS("Нет доступа к справочнику. Проверьте права токена «Только чтение»"),
+    RATE_LIMIT("Лимит запросов Т‑Инвестиций. Повторите позже"),
+    REDIRECT("Сервис изменил адрес. Требуется обновление приложения"),
+    SERVICE("Т‑Инвестиции временно недоступны. Повторите позже"),
+    TLS("Не удалось проверить сертификат Т‑Инвестиций. Проверьте дату и время устройства и обновите приложение"),
+    TIMEOUT("Т‑Инвестиции не ответили вовремя. Повторите проверку или смените сеть"),
+    DNS("Не найден адрес API Т‑Инвестиций. Проверьте сеть, DNS и VPN"),
+    NETWORK("Не удалось подключиться к Т‑Инвестициям. Проверьте сеть и VPN"),
+    RESPONSE("Неверный ответ справочника"),
+    RESPONSE_SIZE("Слишком большой ответ справочника")
+}
+internal class TInvestApiException(val failure: TInvestFailure, val httpStatus: Int? = null) :
+    IOException(failure.userMessage + (httpStatus?.let { " (HTTP $it)" } ?: ""))
+
+class TInvestHttpTransport internal constructor(private val openConnection: (URL) -> HttpURLConnection) : TInvestTransport {
+    constructor() : this({ it.openConnection() as HttpURLConnection })
     override fun post(method: TInvestMethod, token: String, request: JSONObject): JSONObject {
         require(token.isNotBlank() && token.none { it.isWhitespace() || it.isISOControl() }) { "Проверьте токен API" }
+        try { return execute(method,token,request) }
+        catch (error: IOException) {
+            // No raw exception/cause is exposed: it may contain a URL, header or credential.
+            if (error is TInvestApiException) throw error
+            val causes = generateSequence<Throwable>(error) { it.cause }.take(8).toList()
+            throw when {
+                causes.any { it is SSLException } -> TInvestApiException(TInvestFailure.TLS)
+                causes.any { it is SocketTimeoutException } -> TInvestApiException(TInvestFailure.TIMEOUT)
+                causes.any { it is UnknownHostException } -> TInvestApiException(TInvestFailure.DNS)
+                else -> TInvestApiException(TInvestFailure.NETWORK)
+            }
+        }
+    }
+    private fun execute(method: TInvestMethod, token: String, request: JSONObject): JSONObject {
         val address = "https://invest-public-api.tbank.ru/rest/tinkoff.public.invest.api.contract.v1.InstrumentsService/" + method.rpc
-        val connection = URL(address).openConnection() as HttpURLConnection
+        val connection = openConnection(URL(address))
         try {
             connection.requestMethod = "POST"
             connection.instanceFollowRedirects = false
@@ -39,12 +72,12 @@ class TInvestHttpTransport : TInvestTransport {
             connection.outputStream.use { it.write(bytes) }
             val status = connection.responseCode
             if (status !in 200..299) throw TInvestApiException(when (status) {
-                401 -> "Токен API недействителен или отозван"
-                403 -> "Нет доступа к справочнику. Проверьте права токена «Только чтение»"
-                429 -> "Лимит запросов Т‑Инвестиций. Повторите позже"
-                in 300..399 -> "Сервис изменил адрес. Требуется обновление приложения"
-                else -> "Т‑Инвестиции временно недоступны (HTTP " + status + ")"
-            })
+                401 -> TInvestFailure.AUTH
+                403 -> TInvestFailure.ACCESS
+                429 -> TInvestFailure.RATE_LIMIT
+                in 300..399 -> TInvestFailure.REDIRECT
+                else -> TInvestFailure.SERVICE
+            },status)
             val response = connection.inputStream.bufferedReader().use { reader ->
                 val result = StringBuilder()
                 val buffer = CharArray(8192)
@@ -52,15 +85,11 @@ class TInvestHttpTransport : TInvestTransport {
                     val count = reader.read(buffer)
                     if (count < 0) break
                     result.append(buffer,0,count)
-                    if (result.length > 8_000_000) throw TInvestApiException("Слишком большой ответ справочника")
+                    if (result.length > 8_000_000) throw TInvestApiException(TInvestFailure.RESPONSE_SIZE)
                 }
                 result.toString()
             }
-            return try { JSONObject(response) } catch (_: Exception) { throw TInvestApiException("Неверный ответ справочника") }
-        } catch (error: IOException) {
-            // Never include a response body, URL, headers or the credential in error messages/logs.
-            if (error is TInvestApiException) throw error
-            throw IOException("Нет связи с Т‑Инвестициями. Проверьте интернет")
+            return try { JSONObject(response) } catch (_: Exception) { throw TInvestApiException(TInvestFailure.RESPONSE) }
         } finally { connection.disconnect() }
     }
 }
