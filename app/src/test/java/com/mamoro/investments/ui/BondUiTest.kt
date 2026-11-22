@@ -100,6 +100,14 @@ class BondUiTest {
         rule.onNodeWithText("Не объявлено").assertIsDisplayed()
         capture("bond-tablet-portrait-font-150")
     }
+    @Test fun phoneMonthLabelsDoNotWrapAtLargeFont() {
+        show("bond-calendar",1.5f)
+        val layouts=mutableListOf<TextLayoutResult>()
+        rule.onNodeWithTag("coupon-month-0").performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        assertEquals(1,layouts.single().lineCount)
+        assertFalse(layouts.single().hasVisualOverflow)
+        capture("bond-phone-font-150")
+    }
     private fun capture(name: String) {
         rule.waitForIdle()
         rule.runOnIdle {
