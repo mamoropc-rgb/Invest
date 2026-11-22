@@ -18,10 +18,11 @@ class PremiumCaptureActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         val mode = intent.getStringExtra("screen") ?: "portfolio"
+        if (mode == "bond-keystore-check") runBondKeystoreProbe(this)
         val fixture = if (mode == "empty") emptyState() else referenceState()
         setContent {
             InvestmentsTheme {
-                InvestmentDashboard(vm, fixture,
+                if (mode.startsWith("bond-")) BondCaptureScreen(mode) else InvestmentDashboard(vm, fixture,
                     initialPage = when (mode) { "operations" -> 2; "assets" -> 1; "analytics" -> 3; "more" -> 4; else -> 0 },
                     initiallyShowQuick = mode == "actions",
                     history = if (mode == "empty") emptyList() else referenceHistory())
