@@ -36,6 +36,7 @@ interface BondDao {
     @Query("SELECT * FROM bond_reference WHERE ref_uid=:uid") suspend fun byUid(uid: String): BondReferenceEntity?
     @Query("SELECT * FROM bond_coupons WHERE securityId=:id AND eventKey=:key") suspend fun coupon(id: String, key: String): BondCouponEntity?
     @Query("SELECT * FROM bond_coupon_receipts WHERE securityId=:id AND eventKey=:key") suspend fun receipt(id: String, key: String): BondCouponReceiptEntity?
+    @Query("SELECT * FROM bond_coupon_receipts WHERE incomeId=:id") suspend fun receiptForIncome(id: String): BondCouponReceiptEntity?
     @Query("SELECT * FROM bond_trade_dates WHERE tradeId=:id") suspend fun tradeDate(id: String): BondTradeDateEntity?
     @Query("SELECT * FROM bond_trade_dates") suspend fun tradeDates(): List<BondTradeDateEntity>
     @Query("UPDATE bond_coupons SET active=0 WHERE securityId=:id AND payDay BETWEEN :from AND :through")

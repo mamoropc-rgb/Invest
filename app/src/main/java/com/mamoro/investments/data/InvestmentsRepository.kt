@@ -9,6 +9,9 @@ import kotlinx.coroutines.flow.combine
 import org.json.JSONObject
 import java.util.Locale
 import java.util.UUID
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
 
 class InvestmentsRepository(private val context: Context, private val db: InvestmentDatabase) {
     private val dao = db.dao()
@@ -72,11 +75,13 @@ class InvestmentsRepository(private val context: Context, private val db: Invest
 
     suspend fun createTrade(
         securityId: String, side: String, quantityMicros: Long, priceMinor: Long,
-        feeMinor: Long, walletAccountId: String
+        feeMinor: Long, walletAccountId: String, executionDay: Long? = null, settlementDay: Long? = null
     ) {
         require(side == "BUY" || side == "SELL")
         require(quantityMicros > 0L && priceMinor >= 0L && feeMinor >= 0L)
-        val now = System.currentTimeMillis()
+        val now = operationTimestamp(executionDay)
+        val day = executionDay ?: LocalDate.now().toEpochDay()
+        require(settlementDay == null || settlementDay >= day) { "Дата расчётов не может предшествовать сделке" }
         db.withTransaction {
             val security = requireNotNull(dao.getSecurity(securityId)) { "Бумага не найдена" }
             require(!security.archived) { "Бумага архивирована" }
@@ -88,24 +93,37 @@ class InvestmentsRepository(private val context: Context, private val db: Invest
             if (walletAccountId.isNotEmpty()) require(dao.getAccount(walletAccountId) != null)
             val trade = TradeEntity(UUID.randomUUID().toString(), securityId, side, quantityMicros,
                 priceMinor, feeMinor, now, walletAccountId)
+            // Backdated trades must also leave every subsequent sale covered.
+            PortfolioMath.compute(listOf(security),dao.getActiveTrades(securityId) + trade,emptyList())
             dao.insertTrade(trade)
+            if (security.kind == "BOND") db.bondDao().saveTradeDate(BondTradeDateEntity(trade.id,day,settlementDay))
             addEvent("TRADE_UPSERT", trade.id, tradeJson(trade, security.ticker))
         }
         notifyWallet()
     }
 
     suspend fun createIncome(
-        securityId: String, kind: String, amountMinor: Long, note: String, walletAccountId: String
+        securityId: String, kind: String, amountMinor: Long, note: String, walletAccountId: String,
+        couponEventKey: String? = null, receivedDay: Long? = null
     ) {
         require(kind == "DIVIDEND" || kind == "COUPON")
         require(amountMinor > 0L) { "Доход должен быть больше нуля" }
-        val now = System.currentTimeMillis()
+        val now = operationTimestamp(receivedDay)
         db.withTransaction {
             val security = requireNotNull(dao.getSecurity(securityId))
+            if (couponEventKey != null) {
+                require(kind == "COUPON" && security.kind == "BOND")
+                val coupon = requireNotNull(db.bondDao().coupon(securityId,couponEventKey)) { "Купон не найден" }
+                require(coupon.active) { "Выплата отсутствует в обновлённом расписании" }
+                require(coupon.coupon.payDay <= LocalDate.now().toEpochDay()) { "Будущую выплату пока нельзя подтвердить" }
+                val previous = db.bondDao().receipt(securityId,couponEventKey)?.incomeId?.let { dao.getIncome(it) }
+                require(previous == null || previous.deleted) { "Этот купон уже отмечен полученным" }
+            }
             if (walletAccountId.isNotEmpty()) require(dao.getAccount(walletAccountId) != null)
             val item = IncomeEntity(UUID.randomUUID().toString(), securityId, kind, amountMinor,
                 note.trim(), now, walletAccountId)
             dao.insertIncome(item)
+            if (couponEventKey != null) db.bondDao().saveReceipt(BondCouponReceiptEntity(securityId,couponEventKey,item.id))
             addEvent("INCOME_UPSERT", item.id, incomeJson(item, security.ticker))
         }
         notifyWallet()
@@ -145,6 +163,13 @@ class InvestmentsRepository(private val context: Context, private val db: Invest
             .put("event_kind", kind)
         dao.appendEvent(SyncEventEntity(eventId = eventId, operationId = operationId,
             eventKind = kind, payloadJson = body.toString(), createdAt = System.currentTimeMillis()))
+    }
+
+    private fun operationTimestamp(day: Long?): Long {
+        if (day == null) return System.currentTimeMillis()
+        val date = LocalDate.ofEpochDay(day)
+        require(!date.isAfter(LocalDate.now())) { "Операция не может быть в будущем" }
+        return date.atTime(LocalTime.now()).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
     }
 
     private fun tradeJson(trade: TradeEntity, ticker: String): JSONObject {
