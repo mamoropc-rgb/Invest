@@ -194,7 +194,8 @@ import java.util.Locale
     bonds: BondState, payment: BondCalendar.Payment, onClose: () -> Unit) {
     var amount by remember { mutableStateOf(payment.expectedMinor?.let { BigDecimal.valueOf(it,2).toPlainString() }.orEmpty()) }
     var day by remember { mutableStateOf<Long?>(LocalDate.now().toEpochDay()) }
-    var account by remember { mutableStateOf(dashboard.accounts.firstOrNull()?.accountId.orEmpty()) }
+    val rubleAccounts=dashboard.accounts.filter { it.currency.equals("RUB",ignoreCase=true) }
+    var account by remember { mutableStateOf(rubleAccounts.firstOrNull()?.accountId.orEmpty()) }
     var existingId by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
     var saving by remember { mutableStateOf(false) }
@@ -211,8 +212,8 @@ import java.util.Locale
                 Text("Укажите фактически полученную сумму после удержаний. Она станет операцией дохода.",color=SoftText,fontSize=12.sp,lineHeight=17.sp)
                 AmountField(amount,{ amount=it },"Получено, ₽")
                 BondDateField("Дата получения",day,{ day=it },optional=false,maxDay=LocalDate.now().toEpochDay())
-                if (dashboard.accounts.isNotEmpty()) SelectionField("Счёт из Кошелька",dashboard.accounts.map { it.accountId to it.name },account,{ account=it })
-                else Text("Операция сохранится локально. Передача в Кошелёк отложена до подключения счёта.",color=SoftText,fontSize=12.sp,lineHeight=17.sp)
+                if (rubleAccounts.isNotEmpty()) SelectionField("Рублёвый счёт из Кошелька",listOf("" to "Сохранить локально") + rubleAccounts.map { it.accountId to it.name },account,{ account=it })
+                else Text("Рублёвый счёт не подключён. Операция сохранится локально, передача в Кошелёк отложена.",color=SoftText,fontSize=12.sp,lineHeight=17.sp)
             } else Text("Новая операция дохода не создаётся. Расписание свяжется с выбранной выплатой.",color=SoftText,fontSize=12.sp,lineHeight=17.sp)
             error?.let { Text(it,color=Red,fontSize=12.sp,lineHeight=17.sp) }
         }
