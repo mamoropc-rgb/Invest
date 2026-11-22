@@ -5,11 +5,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import com.mamoro.investments.data.*
 import com.mamoro.investments.domain.PortfolioMath
 import com.mamoro.investments.ui.theme.InvestmentsTheme
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /** Debug-only screenshot entry point. Fixtures live in memory and never enter Room. */
 class PremiumCaptureActivity : ComponentActivity() {
@@ -23,6 +26,7 @@ class PremiumCaptureActivity : ComponentActivity() {
         }
         val mode = intent.getStringExtra("screen") ?: "portfolio"
         if (mode == "bond-keystore-check") runBondKeystoreProbe(this)
+        if (mode == "bond-network-check") lifecycleScope.launch(Dispatchers.IO) { runTInvestNetworkProbe(applicationContext) }
         val fixture = if (mode == "empty") emptyState() else referenceState()
         setContent {
             InvestmentsTheme {
