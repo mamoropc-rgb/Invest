@@ -8,13 +8,15 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [
         SecurityEntity::class, TradeEntity::class, IncomeEntity::class,
-        SyncEventEntity::class, WalletAccountEntity::class, SyncStateEntity::class
+        SyncEventEntity::class, WalletAccountEntity::class, SyncStateEntity::class,
+        BondReferenceEntity::class, BondCouponEntity::class, BondTradeDateEntity::class, BondCouponReceiptEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class InvestmentDatabase : RoomDatabase() {
     abstract fun dao(): InvestmentDao
+    abstract fun bondDao(): BondDao
 
     companion object {
         @Volatile private var instance: InvestmentDatabase? = null
@@ -23,7 +25,7 @@ abstract class InvestmentDatabase : RoomDatabase() {
                 context.applicationContext,
                 InvestmentDatabase::class.java,
                 "investments_v1.db"
-            ).build().also { instance = it }
+            ).addMigrations(BondMigrationV2).build().also { instance = it }
         }
     }
 }
