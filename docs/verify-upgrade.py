@@ -10,6 +10,7 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 from upgrade_policy import verify_preservation
+from upgrade_ui import bounds as node_bounds, launcher_anr_close
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--old-apk', required=True, type=Path)
@@ -17,18 +18,20 @@ parser.add_argument('--new-apk', required=True, type=Path)
 parser.add_argument('--output', type=Path, default=Path('build/outputs/upgrade-check'))
 args = parser.parse_args()
 args.output.mkdir(parents=True, exist_ok=True)
+(args.output / 'run-status.json').write_text(json.dumps({'status': 'started', 'personal_data': False}))
 package = 'com.mamoro.investments'
 db_dir = f'/data/user/0/{package}/databases'
 
-def command(*items, timeout=120):
+def command(*items, timeout=120, quiet=False):
     result = subprocess.run(list(map(str, items)), stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True, timeout=timeout)
-    print(result.stdout.strip(), flush=True)
+    if not quiet:
+        print(result.stdout.strip(), flush=True)
     result.check_returncode()
     return result.stdout.strip().replace('\r', '')
 
-def adb(*items):
-    return command('adb', *items)
+def adb(*items, **kwargs):
+    return command('adb', *items, **kwargs)
 
 assert adb('shell', 'getprop', 'ro.kernel.qemu') == '1', 'Only a disposable emulator is allowed'
 assert f'package:{package}' not in adb('shell', 'pm', 'list', 'packages', package), 'A fresh emulator is required'
@@ -62,15 +65,27 @@ for attempt in range(3):
     time.sleep(1)
 assert root_ready, 'The disposable emulator must support adb root'
 
-def ui_node(text=None, class_name=None, attempts=5):
+def ui_node(text=None, class_name=None, attempts=10):
+    recovered_launcher = False
     for attempt in range(attempts):
         adb('shell','uiautomator','dump','/sdcard/invest-upgrade-ui.xml')
-        tree = ET.fromstring(adb('shell','cat','/sdcard/invest-upgrade-ui.xml'))
+        xml = adb('shell','cat','/sdcard/invest-upgrade-ui.xml', quiet=True)
+        (args.output / 'last-ui.xml').write_text(xml)
+        tree = ET.fromstring(xml)
+        launcher_button = launcher_anr_close(tree)
+        if launcher_button is not None:
+            assert not recovered_launcher, 'Pixel Launcher repeatedly stopped responding'
+            recovered_launcher = True
+            left, top, right, bottom = launcher_button
+            print('Recovering the disposable emulator launcher; app ANRs are not ignored', flush=True)
+            adb('shell','input','tap',(left+right)//2,(top+bottom)//2)
+            adb('shell','am','start','-W','-n',f'{package}/.MainActivity')
+            continue
         for node in tree.iter('node'):
             if (text is None or node.get('text') == text) and (class_name is None or node.get('class') == class_name):
-                bounds = list(map(int, re.findall(r'\d+', node.get('bounds',''))))
-                if len(bounds) == 4 and bounds[2] > bounds[0] and bounds[3] > bounds[1]:
-                    return bounds
+                rectangle = node_bounds(node)
+                if rectangle is not None:
+                    return rectangle
         time.sleep(1)
     raise AssertionError('Expected UI control was not visible: '+str(text or class_name))
 
@@ -176,4 +191,5 @@ report = dict(installed_over_previous=True, **preservation,
               new_apk_sha256=hashlib.sha256(args.new_apk.read_bytes()).hexdigest(),
               row_counts={name:len(rows) for name,rows in after['rows'].items()})
 (args.output/'upgrade-result.json').write_text(json.dumps(report,ensure_ascii=False,indent=2))
+(args.output/'run-status.json').write_text(json.dumps({'status': 'passed', 'personal_data': False}))
 print(json.dumps(report,ensure_ascii=False,indent=2))
