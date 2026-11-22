@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <!-- The bank's additional CA applies only to the fixed, information-only API host.
+         Android still validates the certificate chain, validity and HTTPS hostname. -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="false">invest-public-api.tbank.ru</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="@raw/tinvest_russian_root_ca" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>
