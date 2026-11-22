@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -28,7 +29,7 @@ internal enum class FormKind { NEW_SECURITY, BUY, SELL, DIVIDEND, COUPON, PRICE 
 @Composable
 internal fun InvestmentForm(
     kind: FormKind, state: InvestmentsRepository.DashboardState,
-    preselected: String?, onClose: () -> Unit, vm: InvestmentsViewModel
+    preselected: String?, onClose: () -> Unit, vm: InvestmentsViewModel, onFindBond: () -> Unit
 ) {
     var name by remember(kind) { mutableStateOf("") }
     var ticker by remember(kind) { mutableStateOf("") }
@@ -41,6 +42,11 @@ internal fun InvestmentForm(
     var securityId by remember(kind, preselected) { mutableStateOf(preselected ?: available.firstOrNull()?.id.orEmpty()) }
     var accountId by remember(kind) { mutableStateOf(state.accounts.firstOrNull()?.accountId.orEmpty()) }
     var error by remember(kind) { mutableStateOf<String?>(null) }
+
+    var saving by remember(kind) { mutableStateOf(false) }
+    var executionDay by remember(kind) { mutableStateOf<Long?>(java.time.LocalDate.now().toEpochDay()) }
+    var settlementDay by remember(kind) { mutableStateOf<Long?>(null) }
+    val completed: (String?) -> Unit = { message -> saving=false; if (message == null) onClose() else error=message }
 
     val title = when (kind) {
         FormKind.NEW_SECURITY -> "Новая бумага"
@@ -57,6 +63,8 @@ internal fun InvestmentForm(
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         when (kind) {
             FormKind.NEW_SECURITY -> {
+                GlassActionButton("Найти облигацию",onFindBond,Modifier.fillMaxWidth(),icon=androidx.compose.material.icons.Icons.Outlined.Search)
+                Text("Поиск по названию, тикеру или ISIN в Т‑Инвестициях. Остальные бумаги можно добавить вручную.",color=SoftText,style=MaterialTheme.typography.bodySmall)
                 OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Название") },
                     placeholder = { Text("ОФЗ 26242") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = premiumFieldColors())
                 OutlinedTextField(value = ticker, onValueChange = { ticker = it }, label = { Text("Тикер / обозначение") },
@@ -86,6 +94,11 @@ internal fun InvestmentForm(
                             placeholder = { Text("10") }, singleLine = true, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(18.dp), colors = premiumFieldColors())
                         AmountField(amount, { amount = it }, "Цена за бумагу, ₽")
                         AmountField(fee, { fee = it }, "Комиссия, ₽")
+                        if (selected?.kind == "BOND") {
+                            BondDateField("Дата сделки",executionDay,{ executionDay=it },optional=false,maxDay=java.time.LocalDate.now().toEpochDay())
+                            BondDateField("Дата расчётов по отчёту брокера",settlementDay,{ settlementDay=it },minDay=executionDay)
+                            Text("Если дата расчётов неизвестна, прогноз купонов будет помечен как оценка.",color=SoftText,style=MaterialTheme.typography.bodySmall)
+                        }
                     } else {
                         AmountField(amount, { amount = it }, "Сумма выплаты, ₽")
                         OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Примечание (необязательно)") },
@@ -102,43 +115,45 @@ internal fun InvestmentForm(
         }
         if (error != null) Text(error.orEmpty(), color = MaterialTheme.colorScheme.error)
         GlassActionButton(
-            label = "Сохранить", icon = Icons.Rounded.Check,
+            label = if (saving) "Сохранение…" else "Сохранить", icon = Icons.Rounded.Check,
             onClick = {
+                saving=true
                 val result = runCatching {
                     when (kind) {
                         FormKind.NEW_SECURITY -> {
                             require(name.isNotBlank() && ticker.isNotBlank()) { "Введите название и тикер" }
-                            vm.addSecurity(name, ticker, securityKind, MoneyMath.parseMoney(amount))
+                            vm.addSecurity(name, ticker, securityKind, MoneyMath.parseMoney(amount),completed)
                         }
-                        FormKind.PRICE -> vm.updatePrice(requireNotNull(selected).id, MoneyMath.parseMoney(amount))
+                        FormKind.PRICE -> vm.updatePrice(requireNotNull(selected).id, MoneyMath.parseMoney(amount),completed)
                         FormKind.BUY, FormKind.SELL -> {
                             val id = requireNotNull(selected) { "Выберите бумагу" }.id
                             vm.addTrade(id, if (kind == FormKind.BUY) "BUY" else "SELL",
-                                MoneyMath.parseQuantity(quantity), MoneyMath.parseMoney(amount), MoneyMath.parseMoney(fee), accountId)
+                                MoneyMath.parseQuantity(quantity), MoneyMath.parseMoney(amount), MoneyMath.parseMoney(fee), accountId,
+                                if (selected.kind == "BOND") executionDay else null, if (selected.kind == "BOND") settlementDay else null,completed)
                         }
                         FormKind.DIVIDEND, FormKind.COUPON -> {
                             val id = requireNotNull(selected) { "Выберите бумагу" }.id
                             vm.addIncome(id, if (kind == FormKind.DIVIDEND) "DIVIDEND" else "COUPON",
-                                MoneyMath.parseMoney(amount), note, accountId)
+                                MoneyMath.parseMoney(amount), note, accountId,completed)
                         }
                     }
                 }
-                result.fold(onSuccess = { onClose() }, onFailure = { error = it.message ?: "Проверьте данные" })
+                result.onFailure { saving=false; error=it.message ?: "Проверьте данные" }
             },
-            enabled = (kind == FormKind.NEW_SECURITY || kind == FormKind.PRICE || available.isNotEmpty()),
+            enabled = !saving && (kind == FormKind.NEW_SECURITY || kind == FormKind.PRICE || available.isNotEmpty()),
             modifier = Modifier.fillMaxWidth()
         )
     }
 }
 
-@Composable private fun AmountField(value: String, onChange: (String) -> Unit, label: String) {
+@Composable internal fun AmountField(value: String, onChange: (String) -> Unit, label: String) {
     OutlinedTextField(value = value, onValueChange = onChange, label = { Text(label) },
         placeholder = { Text("0,00") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(18.dp), colors = premiumFieldColors(),
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal))
 }
 
-@Composable private fun SelectionField(
+@Composable internal fun SelectionField(
     label: String, options: List<Pair<String, String>>, selected: String, onChange: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -158,8 +173,8 @@ internal fun InvestmentForm(
     }
 }
 
-@Composable private fun premiumFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
+@Composable internal fun premiumFieldColors(): TextFieldColors = OutlinedTextFieldDefaults.colors(
     focusedTextColor = Color(0xFFF9F7F8), unfocusedTextColor = Color(0xFFF9F7F8),
     focusedBorderColor = OrangeLight, unfocusedBorderColor = Color.White.copy(alpha = .30f),
-    focusedContainerColor = Color(0xAA3B3032), unfocusedContainerColor = Color(0x992A2A35)
+    focusedContainerColor = Color(0xFF10171C), unfocusedContainerColor = Color(0xFF0C1216)
 )

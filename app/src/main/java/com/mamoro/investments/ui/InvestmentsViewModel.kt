@@ -17,36 +17,38 @@ class InvestmentsViewModel(application: Application) : AndroidViewModel(applicat
     val dashboard = repo.dashboard.map { it as InvestmentsRepository.DashboardState? }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     private val _message = MutableStateFlow<String?>(null)
+    internal val bonds = BondController(application,viewModelScope,InvestmentDatabase.get(application),repo) { _message.value = it }
     val message = _message.asStateFlow()
     fun clearMessage() { _message.value = null }
 
-    private fun runAction(success: String, block: suspend () -> Unit) {
+    private fun runAction(success: String, onResult: (String?) -> Unit = {}, block: suspend () -> Unit) {
         viewModelScope.launch {
             runCatching { block() }.fold(
-                onSuccess = { _message.value = success },
-                onFailure = { _message.value = it.message ?: "Не удалось выполнить действие" }
+                onSuccess = { _message.value = success; onResult(null) },
+                onFailure = { val text = it.message ?: "Не удалось выполнить действие"; _message.value = text; onResult(text) }
             )
         }
     }
 
-    fun addSecurity(name: String, ticker: String, kind: String, priceMinor: Long) =
-        runAction("Бумага добавлена") { repo.createSecurity(name, ticker, kind, priceMinor) }
+    fun addSecurity(name: String, ticker: String, kind: String, priceMinor: Long, onResult: (String?) -> Unit = {}) =
+        runAction("Бумага добавлена",onResult) { repo.createSecurity(name, ticker, kind, priceMinor) }
 
-    fun updatePrice(id: String, priceMinor: Long) =
-        runAction("Цена обновлена") { repo.updatePrice(id, priceMinor) }
+    fun updatePrice(id: String, priceMinor: Long, onResult: (String?) -> Unit = {}) =
+        runAction("Цена обновлена",onResult) { repo.updatePrice(id, priceMinor) }
 
     fun archiveSecurity(id: String) =
         runAction("Статус бумаги изменён") { repo.archiveSecurity(id) }
 
     fun addTrade(securityId: String, side: String, quantityMicros: Long, priceMinor: Long,
-                 feeMinor: Long, walletAccountId: String) =
-        runAction("Сделка сохранена") {
-            repo.createTrade(securityId, side, quantityMicros, priceMinor, feeMinor, walletAccountId)
+                 feeMinor: Long, walletAccountId: String, executionDay: Long? = null, settlementDay: Long? = null,
+                 onResult: (String?) -> Unit = {}) =
+        runAction("Сделка сохранена",onResult) {
+            repo.createTrade(securityId, side, quantityMicros, priceMinor, feeMinor, walletAccountId,executionDay,settlementDay)
         }
 
     fun addIncome(securityId: String, kind: String, amountMinor: Long,
-                  note: String, walletAccountId: String) =
-        runAction("Доход сохранён") {
+                  note: String, walletAccountId: String, onResult: (String?) -> Unit = {}) =
+        runAction("Доход сохранён",onResult) {
             repo.createIncome(securityId, kind, amountMinor, note, walletAccountId)
         }
 

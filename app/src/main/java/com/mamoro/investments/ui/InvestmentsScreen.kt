@@ -32,6 +32,7 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material.icons.outlined.*
@@ -103,6 +104,14 @@ internal fun InvestmentDashboard(
     var walletAction by remember { mutableStateOf<String?>(null) }
     var chosenSecurity by remember { mutableStateOf<String?>(null) }
     var selectedDetail by remember { mutableStateOf<String?>(null) }
+    var bondSearch by remember { mutableStateOf(false) }
+    var bondTarget by remember { mutableStateOf<String?>(null) }
+    var calendarOpen by remember { mutableStateOf(false) }
+    var calendarSecurity by remember { mutableStateOf<String?>(null) }
+    var settlementsFor by remember { mutableStateOf<String?>(null) }
+    fun findBond(id: String?) {
+        vm.bonds.clearBrowser(); bondTarget=id; selectedDetail=null; form=null; bondSearch=true
+    }
     var deleteItem by remember { mutableStateOf<Pair<String, String>?>(null) }
     BackHandler(enabled = pager.currentPage != 0 && !quickActions && form == null && selectedDetail == null) {
         scope.launch { pager.animateScrollToPage(0, animationSpec = tween(180)) }
@@ -151,8 +160,8 @@ internal fun InvestmentDashboard(
                             onOperations = { scope.launch { pager.animateScrollToPage(2, animationSpec = tween(180)) } })
                         1 -> AssetsPage(state,active = pager.currentPage == 1,onAdd = { form = FormKind.NEW_SECURITY },onSecurity = { selectedDetail = it },horizontalInset = horizontalInset)
                         2 -> OperationsPage(state,onDelete = { kind,id -> deleteItem = kind to id },horizontalInset = horizontalInset)
-                        3 -> AnalyticsPage(state,horizontalInset = horizontalInset)
-                        else -> SettingsPage(state,horizontalInset = horizontalInset)
+                        3 -> AnalyticsPage(state,horizontalInset = horizontalInset,onCalendar={ calendarSecurity=null; calendarOpen=true })
+                        else -> SettingsPage(state,horizontalInset = horizontalInset,bonds=vm.bonds)
                        }
                       }
                     }
@@ -225,7 +234,7 @@ internal fun InvestmentDashboard(
             containerColor = Frost, contentColor = StrongText) {
             LightSheetSystemBars()
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                InvestmentForm(form!!, state, chosenSecurity, onClose = { form = null; chosenSecurity = null }, vm = vm)
+                InvestmentForm(form!!, state, chosenSecurity, onClose = { form = null; chosenSecurity = null }, vm = vm,onFindBond={ findBond(null) })
             }
         }
     }
@@ -242,9 +251,36 @@ internal fun InvestmentDashboard(
                     form = type
                     selectedDetail = null
                 }, onPrice = { chosenSecurity = item.id; form = FormKind.PRICE; selectedDetail = null },
-                    onArchive = { vm.archiveSecurity(item.id); selectedDetail = null })
+                    onArchive = { vm.archiveSecurity(item.id); selectedDetail = null }, bonds=vm.bonds,
+                    onFindBond={ findBond(item.id) },onCalendar={ selectedDetail=null; calendarSecurity=item.id; calendarOpen=true },
+                    onSettlements={ selectedDetail=null; settlementsFor=item.id })
                 }
             }
+        }
+    }
+
+    if (bondSearch && state != null) {
+        ModalBottomSheet(onDismissRequest={ bondSearch=false; vm.bonds.clearBrowser() },
+            sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),sheetMaxWidth=720.dp,
+            containerColor=Frost,contentColor=StrongText) {
+            LightSheetSystemBars()
+            BondSearchSheet(vm.bonds,state.securities.firstOrNull { it.id == bondTarget },
+                onClose={ bondSearch=false; vm.bonds.clearBrowser() },
+                onSaved={ id -> bondSearch=false; vm.bonds.clearBrowser(); selectedDetail=id })
+        }
+    }
+    if (calendarOpen && state != null) {
+        ModalBottomSheet(onDismissRequest={ calendarOpen=false },sheetMaxWidth=720.dp,
+            sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=Frost,contentColor=StrongText) {
+            LightSheetSystemBars()
+            BondCalendarSheet(vm.bonds,state,calendarSecurity) { calendarOpen=false }
+        }
+    }
+    if (settlementsFor != null && state != null) {
+        ModalBottomSheet(onDismissRequest={ settlementsFor=null },sheetMaxWidth=720.dp,
+            sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true),containerColor=Frost,contentColor=StrongText) {
+            LightSheetSystemBars()
+            BondSettlementSheet(vm.bonds,state,settlementsFor!!) { settlementsFor=null }
         }
     }
 
@@ -630,7 +666,7 @@ private data class Operation(
 }
 
 @Composable private fun AnalyticsPage(
-    state: InvestmentsRepository.DashboardState, horizontalInset: androidx.compose.ui.unit.Dp
+    state: InvestmentsRepository.DashboardState, horizontalInset: androidx.compose.ui.unit.Dp, onCalendar: () -> Unit
 ) {
     val summary = state.summary
     val types = listOf(categoryValue(summary, "STOCK"), categoryValue(summary, "BOND"), categoryValue(summary, "FUND"))
@@ -641,6 +677,7 @@ private data class Operation(
         verticalArrangement = Arrangement.spacedBy(GlassSizes.sectionGap)
     ) {
         item { PageHeading("Аналитика") }
+        item { GlassActionButton("Календарь купонов",onCalendar,Modifier.fillMaxWidth(),icon=Icons.Outlined.CalendarMonth) }
         item {
             GlassCard(Modifier.fillMaxWidth(), elevated = true) {
                 Text("Структура портфеля", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
@@ -738,7 +775,7 @@ private data class Operation(
 }
 
 @Composable private fun SettingsPage(
-    state: InvestmentsRepository.DashboardState, horizontalInset: androidx.compose.ui.unit.Dp
+    state: InvestmentsRepository.DashboardState, horizontalInset: androidx.compose.ui.unit.Dp, bonds: BondController
 ) {
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -746,6 +783,7 @@ private data class Operation(
         verticalArrangement = Arrangement.spacedBy(GlassSizes.sectionGap)
     ) {
         item { PageHeading("Настройки и связь") }
+        item { BondConnectionCard(bonds) }
         item {
             GlassCard(Modifier.fillMaxWidth(), elevated = true) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -784,7 +822,7 @@ private data class Operation(
                     Text("Конфиденциальность", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                 }
                 Spacer(Modifier.height(9.dp))
-                Text("Данные хранятся в локальной базе. Межпрограммный обмен ограничен цифровой подписью. Интернет не требуется.",
+                Text("Данные хранятся в локальной базе. Для поиска облигаций нужен интернет и токен Т‑Инвестиций. Сохранённые расписания доступны офлайн. Межпрограммный обмен ограничен цифровой подписью.",
                     color = SoftText, fontSize = 12.sp, lineHeight = 18.sp)
             }
         }
@@ -833,10 +871,11 @@ private data class Operation(
 
 @Composable private fun AssetDetail(
     asset: SecurityEntity, state: InvestmentsRepository.DashboardState,
-    onTrade: (FormKind) -> Unit, onPrice: () -> Unit, onArchive: () -> Unit
+    onTrade: (FormKind) -> Unit, onPrice: () -> Unit, onArchive: () -> Unit,
+    bonds: BondController, onFindBond: () -> Unit, onCalendar: () -> Unit, onSettlements: () -> Unit
 ) {
     val holding = state.summary.positions.first { it.security.id == asset.id }
-    Column(Modifier.widthIn(max = GlassSizes.maxContentWidth).fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 36.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
+    Column(Modifier.widthIn(max = GlassSizes.maxContentWidth).fillMaxWidth().heightIn(max=760.dp).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp).padding(bottom = 36.dp), verticalArrangement = Arrangement.spacedBy(13.dp)) {
         Text(asset.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text("${asset.ticker} · ${kindLabel(asset.kind)}", color = SoftText)
         GlassCard(Modifier.fillMaxWidth()) {
@@ -854,6 +893,7 @@ private data class Operation(
             GlassActionButton("Продать", { onTrade(FormKind.SELL) }, Modifier.weight(1f), icon = Icons.Outlined.Remove)
         }
         ActionEntry("Изменить цену", Icons.Outlined.Edit, action = onPrice)
+        if (asset.kind == "BOND") BondAssetSection(bonds,asset,onFindBond,onCalendar,onSettlements)
         TextButton(onClick = onArchive, modifier = Modifier.fillMaxWidth()) { Text(if (asset.archived) "Вернуть из архива" else "Архивировать бумагу") }
     }
 }
