@@ -4,6 +4,9 @@ on:
     branches: [main, master]
     paths: ['app/**', 'docs/capture-premium-glass.sh', '.github/workflows/visual.yml']
   workflow_dispatch:
+concurrency:
+  group: invest-screens-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:

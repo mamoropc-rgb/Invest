@@ -4,6 +4,9 @@ on:
     branches: [main, master]
   pull_request:
   workflow_dispatch:
+concurrency:
+  group: invest-android-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -33,12 +36,34 @@ jobs:
         run: |
           echo "Source commit: $GITHUB_SHA"
           grep -E 'versionCode =|versionName =' app/build.gradle.kts
+      - name: Restore verified Robolectric SDK cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/invest-robolectric-sdk
+          key: ${{ runner.os }}-invest-robolectric-4.14.1-api34-35-v1
+      - name: Prepare verified SDKs with Maven backoff
+        run: |
+          python3 docs/prepare-robolectric.py --directory "$RUNNER_TEMP/invest-robolectric-sdk"
+          echo "ROBOLECTRIC_SDK_DIR=$RUNNER_TEMP/invest-robolectric-sdk" >> "$GITHUB_ENV"
+      - name: Verify additive upgrade policy
+        run: python3 -m unittest discover -s docs -p test_upgrade_policy.py
       - name: Tests, lint and debug APK
         run: gradle --no-daemon --console=plain :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
+      - name: Upload test and lint reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Investments-1.0.6-checks
+          path: |
+            app/build/reports/tests
+            app/build/test-results
+            app/build/reports/lint-results-debug.*
+            ${{ runner.temp }}/invest-robolectric-sdk/sdk-cache-report.json
+          if-no-files-found: warn
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: Investments-1.0.5-debug
+          name: Investments-1.0.6-debug
           path: app/build/outputs/apk/debug/app-debug.apk
       - name: Prepare private signing key
         if: ${{ github.event_name != 'pull_request' }}
@@ -62,7 +87,7 @@ jobs:
         if: ${{ env.SIGN_READY == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: Investments-1.0.5-release-signed
+          name: Investments-1.0.6-release-signed
           path: app/build/outputs/apk/release/app-release.apk
       - name: Remove signing material
         if: always()
@@ -91,11 +116,11 @@ jobs:
           pattern: Investments-*-release-signed
           merge-multiple: true
           path: upgrade/current
-      - name: Download the unchanged 1.0.4 signed baseline
+      - name: Download the unchanged 1.0.5 signed baseline
         uses: actions/download-artifact@v4
         with:
-          name: Investments-1.0.4-release-signed
-          run-id: 44897430996
+          name: Investments-1.0.5-release-signed
+          run-id: 44928429958
           github-token: ${{ github.token }}
           path: upgrade/previous
       - name: Enable hardware acceleration
@@ -103,7 +128,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Install 1.0.5 over 1.0.4 and compare all stored records
+      - name: Install 1.0.6 over 1.0.5 and compare all stored records
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -116,6 +141,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Investments-1.0.5-upgrade-verification
+          name: Investments-1.0.6-upgrade-verification
           path: build/outputs/upgrade-check
           if-no-files-found: error
