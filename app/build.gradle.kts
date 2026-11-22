@@ -5,6 +5,15 @@ plugins {
     id("org.jetbrains.kotlin.kapt")
 }
 
+// Resolve the pinned Robolectric SDKs through Gradle's normal dependency cache.
+// Tests then use local jars, avoiding a second network resolver inside the test JVM.
+val robolectricSdk14 by configurations.creating
+val robolectricSdk15 by configurations.creating
+val prepareRobolectricSdk by tasks.registering(Sync::class) {
+    from(robolectricSdk14,robolectricSdk15)
+    into(layout.buildDirectory.dir("robolectric-sdk"))
+}
+
 android {
     namespace = "com.mamoro.investments"
     compileSdk = 35
@@ -50,7 +59,11 @@ android {
     buildFeatures { compose = true; buildConfig = true }
     testOptions {
         unitTests.isIncludeAndroidResources = true
-        unitTests.all { it.systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2") }
+        unitTests.all {
+            it.dependsOn(prepareRobolectricSdk)
+            it.systemProperty("robolectric.dependency.dir", layout.buildDirectory.dir("robolectric-sdk").get().asFile.absolutePath)
+            it.testLogging.exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+        }
     }
     packaging { resources.excludes += "/META-INF/{AL2.0,LGPL2.1}" }
 }
@@ -58,6 +71,8 @@ android {
 kapt { correctErrorTypes = true }
 
 dependencies {
+    add(robolectricSdk14.name,"org.robolectric:android-all-instrumented:14-robolectric-10818077-i7") { isTransitive = false }
+    add(robolectricSdk15.name,"org.robolectric:android-all-instrumented:15-robolectric-12650502-i7") { isTransitive = false }
     val composeBom = platform("androidx.compose:compose-bom:2024.12.01")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
