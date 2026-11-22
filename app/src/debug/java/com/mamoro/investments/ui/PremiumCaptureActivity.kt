@@ -17,6 +17,10 @@ class PremiumCaptureActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
+        androidx.core.view.WindowInsetsControllerCompat(window,window.decorView).apply {
+            isAppearanceLightStatusBars=false
+            isAppearanceLightNavigationBars=false
+        }
         val mode = intent.getStringExtra("screen") ?: "portfolio"
         if (mode == "bond-keystore-check") runBondKeystoreProbe(this)
         val fixture = if (mode == "empty") emptyState() else referenceState()
