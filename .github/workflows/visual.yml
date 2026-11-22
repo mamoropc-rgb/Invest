@@ -1,4 +1,4 @@
-name: Precise Data - device screenshots
+name: Precise Data - device screenshots and API TLS check
 on:
   push:
     branches: [main, master]
@@ -41,7 +41,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Capture phone, tablet and enlarged text on Android
+      - name: Capture screens and verify native Android certificate policy
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30

@@ -53,7 +53,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Investments-1.0.6-checks
+          name: Investments-1.0.7-checks
           path: |
             app/build/reports/tests
             app/build/test-results
@@ -63,7 +63,7 @@ jobs:
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: Investments-1.0.6-debug
+          name: Investments-1.0.7-debug
           path: app/build/outputs/apk/debug/app-debug.apk
       - name: Prepare private signing key
         if: ${{ github.event_name != 'pull_request' }}
@@ -87,7 +87,7 @@ jobs:
         if: ${{ env.SIGN_READY == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: Investments-1.0.6-release-signed
+          name: Investments-1.0.7-release-signed
           path: app/build/outputs/apk/release/app-release.apk
       - name: Remove signing material
         if: always()
@@ -116,11 +116,11 @@ jobs:
           pattern: Investments-*-release-signed
           merge-multiple: true
           path: upgrade/current
-      - name: Download the unchanged 1.0.5 signed baseline
+      - name: Download the unchanged 1.0.6 signed baseline
         uses: actions/download-artifact@v4
         with:
-          name: Investments-1.0.5-release-signed
-          run-id: 44928429958
+          name: Investments-1.0.6-release-signed
+          run-id: 45027900942
           github-token: ${{ github.token }}
           path: upgrade/previous
       - name: Enable hardware acceleration
@@ -128,7 +128,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Install 1.0.6 over 1.0.5 and compare all stored records
+      - name: Install 1.0.7 over 1.0.6 and compare stored records and the saved token
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
@@ -141,6 +141,6 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Investments-1.0.6-upgrade-verification
+          name: Investments-1.0.7-upgrade-verification
           path: build/outputs/upgrade-check
           if-no-files-found: error
