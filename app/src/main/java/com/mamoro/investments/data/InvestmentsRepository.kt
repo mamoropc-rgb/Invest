@@ -113,6 +113,9 @@ class InvestmentsRepository(private val context: Context, private val db: Invest
             val security = requireNotNull(dao.getSecurity(securityId))
             if (couponEventKey != null) {
                 require(kind == "COUPON" && security.kind == "BOND")
+                if (walletAccountId.isNotEmpty()) require(dao.getAccount(walletAccountId)?.currency.equals("RUB",ignoreCase=true)) {
+                    "Для рублёвого купона выберите рублёвый счёт или сохраните выплату локально"
+                }
                 val coupon = requireNotNull(db.bondDao().coupon(securityId,couponEventKey)) { "Купон не найден" }
                 require(coupon.active) { "Выплата отсутствует в обновлённом расписании" }
                 require(coupon.coupon.payDay <= LocalDate.now().toEpochDay()) { "Будущую выплату пока нельзя подтвердить" }
