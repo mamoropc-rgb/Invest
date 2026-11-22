@@ -22,8 +22,8 @@ android {
         applicationId = "com.mamoro.investments"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.0.5"
+        versionCode = 7
+        versionName = "1.0.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -60,8 +60,9 @@ android {
     testOptions {
         unitTests.isIncludeAndroidResources = true
         unitTests.all {
-            it.dependsOn(prepareRobolectricSdk)
-            it.systemProperty("robolectric.dependency.dir", layout.buildDirectory.dir("robolectric-sdk").get().asFile.absolutePath)
+            val preparedSdk = providers.environmentVariable("ROBOLECTRIC_SDK_DIR").orNull
+            if (preparedSdk == null) it.dependsOn(prepareRobolectricSdk)
+            it.systemProperty("robolectric.dependency.dir", preparedSdk ?: layout.buildDirectory.dir("robolectric-sdk").get().asFile.absolutePath)
             it.testLogging.exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
         }
     }
