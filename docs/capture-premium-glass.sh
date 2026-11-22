@@ -73,7 +73,22 @@ snapshot operations operations 'История операций'
 snapshot empty empty 'Стоимость портфеля'
 snapshot assets assets 'Мои бумаги'
 snapshot analytics analytics 'Структура портфеля'
-snapshot more more 'Связь с Кошельком'
+snapshot more more 'Т‑Инвестиции'
+snapshot bond-search bond-search 'Название, тикер или ISIN'
+snapshot bond-reference bond-reference 'Дата выпуска'
+snapshot bond-calendar bond-calendar 'Календарь купонов'
+snapshot bond-received bond-received 'Полученные'
+snapshot bond-schedule bond-schedule 'Расписание'
+adb shell am force-stop com.mamoro.investments
+adb shell am start -W -n com.mamoro.investments/.ui.PremiumCaptureActivity --es screen bond-keystore-check
+adb exec-out run-as com.mamoro.investments cat files/bond-keystore-check.json > "$capture_dir/bond-keystore-check.json"
+python3 - "$capture_dir/bond-keystore-check.json" <<'PYKEYSTORE'
+import json, sys
+result = json.load(open(sys.argv[1]))
+assert result.get('success'), result
+assert result['round_trip'] and result['encrypted_at_rest'] and result['cleared'], result
+print('Actual Android Keystore round trip passed')
+PYKEYSTORE
 fi
 
 if [[ "$capture_device" != phone ]]; then
@@ -82,13 +97,17 @@ if [[ "$capture_device" != phone ]]; then
 adb shell wm size 2560x1600
 adb shell wm density 320
 snapshot portfolio tablet-landscape 'Стоимость портфеля' 2560 1600
+snapshot bond-calendar bond-tablet-landscape 'Календарь купонов' 2560 1600
 adb shell wm size 1600x2560
 snapshot portfolio tablet-portrait 'Стоимость портфеля' 1600 2560
+snapshot bond-calendar bond-tablet-portrait 'Календарь купонов' 1600 2560
 adb shell settings put system font_scale 1.5
 adb shell wm size 2560x1600
 snapshot portfolio tablet-landscape-font-150 'Стоимость портфеля' 2560 1600
+snapshot bond-calendar bond-tablet-landscape-font-150 'Календарь купонов' 2560 1600
 adb shell wm size 1600x2560
 snapshot portfolio tablet-portrait-font-150 'Стоимость портфеля' 1600 2560
+snapshot bond-calendar bond-tablet-portrait-font-150 'Календарь купонов' 1600 2560
 adb shell settings put system font_scale 1.0
 fi
 
@@ -101,6 +120,8 @@ snapshot actions actions-font-150 'Быстрые действия'
 snapshot operations operations-font-150 'История операций'
 snapshot assets assets-font-150 'Мои бумаги'
 snapshot analytics analytics-font-150 'Структура портфеля'
-snapshot more more-font-150 'Связь с Кошельком'
+snapshot more more-font-150 'Т‑Инвестиции'
+snapshot bond-calendar bond-calendar-font-150 'Календарь купонов'
+snapshot bond-reference bond-reference-font-150 'Облигации'
 fi
 adb logcat -d > "$capture_dir/logcat.txt"
