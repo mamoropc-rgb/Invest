@@ -113,7 +113,7 @@ class TInvestTransportTest {
     @Test fun malformedCredentialNeverOpensAConnection() {
         var opened=false
         val transport=TInvestHttpTransport { opened=true; Connection(it) }
-        for (value in listOf("", "token with space", "token\nInjected: value")) {
+        for (value in listOf("", "token with space", "token\nInjected: value", "тестовый-токен", "token\u200Bhidden")) {
             assertTrue(runCatching { transport.post(TInvestMethod.SEARCH,value,JSONObject()) }.isFailure)
         }
         assertFalse(opened)
