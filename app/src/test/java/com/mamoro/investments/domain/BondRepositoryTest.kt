@@ -80,4 +80,12 @@ class BondRepositoryTest {
         assertTrue(repo.dashboard.first().income.isEmpty())
         assertEquals(0L,db.dao().getMaxSequence())
     }
+    @Test fun foreignWalletAccountCannotReceiveRubleCoupon() = scenario { db,bonds,repo ->
+        val id=bonds.importBond(download(),99000)
+        db.dao().upsertAccount(WalletAccountEntity("usd","Долларовый","USD",10000,1))
+        assertTrue(runCatching { repo.createIncome(id,"COUPON",100,"","usd","uid/1") }.isFailure)
+        assertTrue(repo.dashboard.first().income.isEmpty())
+        assertNull(db.bondDao().receipt(id,"uid/1"))
+        assertEquals(0L,db.dao().getMaxSequence())
+    }
 }
