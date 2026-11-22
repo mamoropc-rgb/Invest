@@ -63,7 +63,7 @@ import java.time.format.DateTimeFormatter
         .padding(horizontal=18.dp).padding(bottom=32.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment=Alignment.CenterVertically) {
             Text("Даты расчётов",fontSize=23.sp,lineHeight=29.sp,fontWeight=FontWeight.Bold,modifier=Modifier.weight(1f))
-            IconButton(onClick=onClose) { Icon(Icons.Outlined.Close,"Закрыть даты расчётов") }
+            IconButton(onClick=onClose) { Icon(Icons.Outlined.Close,"Закрыть даты расчётов",tint=StrongText) }
         }
         Text("Укажите даты исполнения из отчёта брокера. По ним определяется количество для купона. Если дата неизвестна, используется дата сделки и прогноз помечается как оценка.",color=SoftText,fontSize=13.sp,lineHeight=18.sp)
         if (trades.isEmpty()) Text("Сделок с этой облигацией пока нет",color=SoftText)

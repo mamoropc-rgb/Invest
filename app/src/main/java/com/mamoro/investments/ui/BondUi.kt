@@ -167,7 +167,7 @@ internal fun bondDecimal(value: String?, currency: String): String = value?.let 
         verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment=Alignment.CenterVertically) {
             Text("Облигации",fontWeight=FontWeight.Bold,fontSize=23.sp,lineHeight=29.sp,modifier=Modifier.weight(1f))
-            IconButton(onClick=onClose,enabled=!saving) { Icon(Icons.Outlined.Close,"Закрыть поиск") }
+            IconButton(onClick=onClose,enabled=!saving) { Icon(Icons.Outlined.Close,"Закрыть поиск",tint=StrongText) }
         }
         Text(if (localAsset == null) "Поиск в Т‑Инвестициях" else "Подключить: ${localAsset.name}",color=SoftText,fontSize=13.sp,lineHeight=18.sp)
         if (!connected) {

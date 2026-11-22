@@ -17,6 +17,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -68,7 +69,7 @@ import java.util.Locale
                     Text("Календарь купонов",fontWeight=FontWeight.Bold,fontSize=23.sp,lineHeight=29.sp)
                     Text(securityId?.let { names[it]?.name } ?: "Облигации портфеля",color=SoftText,fontSize=13.sp,lineHeight=18.sp)
                 }
-                IconButton(onClick=onClose) { Icon(Icons.Outlined.Close,"Закрыть календарь") }
+                IconButton(onClick=onClose) { Icon(Icons.Outlined.Close,"Закрыть календарь",tint=StrongText) }
             }
         }
         item { CouponMonthChart(upcoming,today) }
@@ -146,9 +147,11 @@ import java.util.Locale
                     Size(cell*.60f,height),CornerRadius(3.dp.toPx()))
             }
         }
-        Row(Modifier.fillMaxWidth()) { months.forEach { month ->
-            Text(month.format(DateTimeFormatter.ofPattern("LLL",Locale.forLanguageTag("ru"))).take(3),
-                Modifier.weight(1f),color=SoftText,fontSize=9.sp,lineHeight=13.sp)
+        val labelStep=when { LocalDensity.current.fontScale >= 2f -> 3; LocalDensity.current.fontScale >= 1.2f -> 2; else -> 1 }
+        Row(Modifier.fillMaxWidth()) { months.chunked(labelStep).forEachIndexed { index,chunk ->
+            Text(chunk.first().format(DateTimeFormatter.ofPattern("LLL",Locale.forLanguageTag("ru"))).take(3),
+                Modifier.weight(chunk.size.toFloat()).testTag("coupon-month-$index"),color=SoftText,fontSize=9.sp,lineHeight=13.sp,
+                maxLines=1,softWrap=false)
         } }
         if (unknown > 0) Text("Ещё $unknown выплат: размер купона пока не объявлен",color=OrangeLight,fontSize=12.sp,lineHeight=17.sp,modifier=Modifier.padding(top=10.dp))
         if (rows.any { it.estimated }) Text("Есть оценки: уточните даты фиксации и расчётов сделок",color=OrangeLight,fontSize=12.sp,lineHeight=17.sp,modifier=Modifier.padding(top=8.dp))
