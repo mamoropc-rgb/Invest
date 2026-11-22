@@ -8,6 +8,7 @@ import re
 import sqlite3
 import subprocess
 import time
+from upgrade_policy import verify_preservation
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--old-apk', required=True, type=Path)
@@ -120,8 +121,8 @@ with (args.output / 'updated-release.png').open('wb') as output:
 adb('shell','am','force-stop',package)
 adb('pull',db_dir,args.output/'after')
 after = snapshot(next((args.output/'after').rglob('investments_v1.db')))
-assert before == after, 'Database schema or stored records changed during update'
-report = dict(installed_over_previous=True, data_preserved=True, schema_preserved=True,
+preservation = verify_preservation(before, after)
+report = dict(installed_over_previous=True, **preservation,
               certificate_sha256=new_cert, old_version=old_manifest, new_version=new_manifest,
               old_apk_sha256=hashlib.sha256(args.old_apk.read_bytes()).hexdigest(),
               new_apk_sha256=hashlib.sha256(args.new_apk.read_bytes()).hexdigest(),
