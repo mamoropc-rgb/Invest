@@ -41,7 +41,7 @@ internal class TInvestApiException(val failure: TInvestFailure, val httpStatus: 
 class TInvestHttpTransport internal constructor(private val openConnection: (URL) -> HttpURLConnection) : TInvestTransport {
     constructor() : this({ it.openConnection() as HttpURLConnection })
     override fun post(method: TInvestMethod, token: String, request: JSONObject): JSONObject {
-        require(token.isNotBlank() && token.none { it.isWhitespace() || it.isISOControl() }) { "Проверьте токен API" }
+        require(token.isNotEmpty() && token.all { it.code in 0x21..0x7e }) { "Проверьте токен API" }
         try { return execute(method,token,request) }
         catch (error: IOException) {
             // No raw exception/cause is exposed: it may contain a URL, header or credential.

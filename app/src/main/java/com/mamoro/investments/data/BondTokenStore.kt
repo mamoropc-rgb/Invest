@@ -26,7 +26,7 @@ class BondTokenStore(context: Context) {
     }
     @Synchronized fun save(token: String) {
         val value = token.trim()
-        require(value.length in 10..4096 && value.none { it.isWhitespace() || it.isISOControl() }) { "Проверьте токен API" }
+        require(value.length in 10..4096 && value.all { it.code in 0x21..0x7e }) { "Проверьте токен API" }
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE,key(true))
         val encoded = Base64.encodeToString(cipher.iv,Base64.NO_WRAP) + "." +
